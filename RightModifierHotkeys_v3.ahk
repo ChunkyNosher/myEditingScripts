@@ -50,7 +50,7 @@ HotkeyConfig["SC019"] := { "RCtrl": "ActivateNotepadPlusPlus", "RAlt": "", "RShi
 HotkeyConfig["SC010"] := { "RCtrl": "", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "q"
 HotkeyConfig["SC013"] := { "RCtrl": "", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "r"
 HotkeyConfig["SC01F"] := { "RCtrl": "", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "s"
-HotkeyConfig["SC014"] := { "RCtrl": "", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "t"
+HotkeyConfig["SC014"] := { "RCtrl": "ToggleAlwaysOnTop", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "t"
 HotkeyConfig["SC016"] := { "RCtrl": "", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "u"
 HotkeyConfig["SC02F"] := { "RCtrl": "", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "v"
 HotkeyConfig["SC011"] := { "RCtrl": "", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "w"
@@ -307,6 +307,48 @@ ActivateNotepadPlusPlus() {
     WinActivate, ahk_exe notepad++.exe
 }
 
+ToggleAlwaysOnTop() {
+    static pinIndicator := " [PINNED]"
+    
+    ; Get active window information
+    WinGet, activeHwnd, ID, A
+    WinGetTitle, currentTitle, ahk_id %activeHwnd%
+    
+    ; Skip if no title (prevents issues with titleless windows)
+    if (currentTitle = "") {
+        ; Still toggle for titleless windows, just no visual indicator
+        WinSet, AlwaysOnTop, Toggle, ahk_id %activeHwnd%
+        return
+    }
+    
+    ; Check current state
+    WinGet, ExStyle, ExStyle, ahk_id %activeHwnd%
+    
+    ; Toggle always-on-top
+    WinSet, AlwaysOnTop, Toggle, ahk_id %activeHwnd%
+    
+    ; Update window title based on new state
+    if (ExStyle & 0x8) {
+        ; Was pinned, now unpinning - remove indicator
+        newTitle := StrReplace(currentTitle, pinIndicator, "")
+        WinSetTitle, ahk_id %activeHwnd%, , %newTitle%
+        ToolTip, Window Unpinned
+    } else {
+        ; Was not pinned, now pinning - add indicator
+        newTitle := currentTitle . pinIndicator
+        WinSetTitle, ahk_id %activeHwnd%, , %newTitle%
+        ToolTip, Window Pinned
+    }
+    
+    ; Remove tooltip after 1 second
+    SetTimer, % Func("ClearTooltip").Bind(), -1000
+}
+
+ClearTooltip() {
+    ToolTip
+}
+
+
 ; =============================================
 ; HOTKEY DEFINITIONS
 ; =============================================
@@ -409,5 +451,6 @@ SC04E:: HandleHotkey("SC04E") ; "NumpadAdd"
 SC04A:: HandleHotkey("SC04A") ; "NumpadSub"
 SC037:: HandleHotkey("SC037") ; "NumpadMult"
 NumpadDiv:: HandleHotkey("NumpadDiv") ; "NumpadDiv"
+
 
 #If
