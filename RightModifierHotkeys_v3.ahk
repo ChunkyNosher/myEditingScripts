@@ -308,45 +308,31 @@ ActivateNotepadPlusPlus() {
 }
 
 ToggleAlwaysOnTop() {
-    static pinIndicator := " [PINNED]"
-    
-    ; Get active window information
+    ; Get the active window's HWND for reliable identification
     WinGet, activeHwnd, ID, A
-    WinGetTitle, currentTitle, ahk_id %activeHwnd%
     
-    ; Skip if no title (prevents issues with titleless windows)
-    if (currentTitle = "") {
-        ; Still toggle for titleless windows, just no visual indicator
-        WinSet, AlwaysOnTop, Toggle, ahk_id %activeHwnd%
-        return
-    }
-    
-    ; Check current state
+    ; Check current always-on-top state BEFORE toggling
     WinGet, ExStyle, ExStyle, ahk_id %activeHwnd%
     
-    ; Toggle always-on-top
+    ; Toggle the always-on-top state
     WinSet, AlwaysOnTop, Toggle, ahk_id %activeHwnd%
     
-    ; Update window title based on new state
+    ; Provide visual feedback via tooltip
     if (ExStyle & 0x8) {
-        ; Was pinned, now unpinning - remove indicator
-        newTitle := StrReplace(currentTitle, pinIndicator, "")
-        WinSetTitle, ahk_id %activeHwnd%, , %newTitle%
-        ToolTip, Window Unpinned
+        ; Was on top, now turned OFF
+        ToolTip, Always On Top: OFF
     } else {
-        ; Was not pinned, now pinning - add indicator
-        newTitle := currentTitle . pinIndicator
-        WinSetTitle, ahk_id %activeHwnd%, , %newTitle%
-        ToolTip, Window Pinned
+        ; Was not on top, now turned ON
+        ToolTip, Always On Top: ON
     }
     
-    ; Remove tooltip after 1 second
-    SetTimer, % Func("ClearTooltip").Bind(), -1000
+    ; Auto-hide tooltip after 1.5 seconds using label (v1.1 compatible)
+    SetTimer, RemoveToolTip, -1500
 }
 
-ClearTooltip() {
+RemoveToolTip:
     ToolTip
-}
+return
 
 
 ; =============================================
