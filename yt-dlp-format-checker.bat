@@ -93,36 +93,53 @@ for /f "usebackq delims=" %%U in ("%LIST_FILE%") do (
         echo [INFO] YouTube Premium subscription detected
     )
     
-    rem Check for premium format IDs (356, 616, 774)
-    findstr /r "^356[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
-    if !errorlevel! equ 0 set "PREMIUM_DETECTED=1"
-    findstr /r "^616[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
-    if !errorlevel! equ 0 set "PREMIUM_DETECTED=1"
-    findstr /r "^774[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
-    if !errorlevel! equ 0 set "PREMIUM_DETECTED=1"
-    findstr /c:" 356 " "!TEMP_FULL_FORMAT!" >nul 2>&1
-    if !errorlevel! equ 0 set "PREMIUM_DETECTED=1"
-    findstr /c:" 616 " "!TEMP_FULL_FORMAT!" >nul 2>&1
-    if !errorlevel! equ 0 set "PREMIUM_DETECTED=1"
-    findstr /c:" 774 " "!TEMP_FULL_FORMAT!" >nul 2>&1
-    if !errorlevel! equ 0 set "PREMIUM_DETECTED=1"
-    
-    rem Also check for 'premium' keyword in MORE INFO column
-    findstr /i "premium" "!TEMP_FULL_FORMAT!" > nul
-    if !errorlevel! equ 0 set "PREMIUM_DETECTED=1"
+    rem Check for specific premium format IDs at line beginning only
+    rem Per youtube-format-ids.md: Format 356, 616, 721, 774 are premium-exclusive
+    for %%F in (356 616 721 774) do (
+        findstr /r "^%%F[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
+        if !errorlevel! equ 0 (
+            set "PREMIUM_DETECTED=1"
+            echo [INFO] Premium Format ID %%F detected
+        )
+    )
     
     if "!PREMIUM_DETECTED!"=="1" (
         set "FINAL_CODEC=PREMIUM"
     ) else (
-        findstr /i "av01 av1" "!TEMP_FULL_FORMAT!" | findstr /v "243 278 394 242 395 396 244 397" > nul
-        if !errorlevel! equ 0 (
+        rem Check for AV1 1080p format IDs (399=30fps, 699=60fps HFR)
+        set "AV1_FOUND=0"
+        for %%F in (399 699) do (
+            findstr /r "^%%F[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
+            if !errorlevel! equ 0 (
+                set "AV1_FOUND=1"
+                echo [INFO] AV1 1080p Format ID %%F detected
+            )
+        )
+        if "!AV1_FOUND!"=="1" (
             set "FINAL_CODEC=AV1"
         ) else (
-            findstr /i "vp09 vp9 vp0" "!TEMP_FULL_FORMAT!" | findstr /v "243 278 394 242 395 396 244 397" > nul
-            if !errorlevel! equ 0 (
+            rem Check for VP9 format IDs (248, 303, 247, 302)
+            set "VP9_FOUND=0"
+            for %%F in (248 303 247 302) do (
+                findstr /r "^%%F[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
+                if !errorlevel! equ 0 (
+                    set "VP9_FOUND=1"
+                    echo [INFO] VP9 Format ID %%F detected
+                )
+            )
+            rem Also check for vp09 codec string as fallback
+            if "!VP9_FOUND!"=="0" (
+                findstr /i "vp09 vp9" "!TEMP_FULL_FORMAT!" | findstr /v "242 243 244 278 394 395 396 397" >nul 2>&1
+                if !errorlevel! equ 0 (
+                    set "VP9_FOUND=1"
+                    echo [INFO] VP9 codec detected via codec string
+                )
+            )
+            if "!VP9_FOUND!"=="1" (
                 set "FINAL_CODEC=VP9"
             ) else (
-                findstr /i "avc1 h264 avc" "!TEMP_FULL_FORMAT!" | findstr /v "243 278 394 242 395 396 244 397" > nul
+                rem Check for H.264 codec (avc1)
+                findstr /i "avc1" "!TEMP_FULL_FORMAT!" >nul 2>&1
                 if !errorlevel! equ 0 (
                     set "FINAL_CODEC=H264"
                 )
@@ -137,13 +154,13 @@ for /f "usebackq delims=" %%U in ("%LIST_FILE%") do (
     
     if "!FINAL_CODEC!"=="PREMIUM" (
         echo Action in Main Program: Download + Re-encode to H.265
-        echo Quality: HIGHEST AVAILABLE
+        echo Quality: HIGHEST AVAILABLE - Premium Format Detected
     ) else if "!FINAL_CODEC!"=="AV1" (
         echo Action in Main Program: Download + Re-encode to H.265
-        echo Quality: EXCELLENT - AV1 Codec Detected
+        echo Quality: EXCELLENT - AV1 1080p Codec Detected
     ) else if "!FINAL_CODEC!"=="VP9" (
-        echo Action in Main Program: Download + Re-encode to H.265
-        echo Quality: EXCELLENT - VP9 Codec Detected
+        echo Action in Main Program: Download WITHOUT Re-encoding
+        echo Quality: EXCELLENT - VP9 Codec ^(skip re-encode policy^)
     ) else if "!FINAL_CODEC!"=="H264" (
         echo Action in Main Program: Download WITHOUT Re-encoding
         echo Quality: GOOD - Standard H.264 Codec
@@ -211,36 +228,53 @@ if !errorlevel! equ 0 (
     echo [INFO] YouTube Premium subscription detected
 )
 
-rem Check for premium format IDs (356, 616, 774)
-findstr /r "^356[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
-if !errorlevel! equ 0 set "PREMIUM_DETECTED=1"
-findstr /r "^616[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
-if !errorlevel! equ 0 set "PREMIUM_DETECTED=1"
-findstr /r "^774[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
-if !errorlevel! equ 0 set "PREMIUM_DETECTED=1"
-findstr /c:" 356 " "!TEMP_FULL_FORMAT!" >nul 2>&1
-if !errorlevel! equ 0 set "PREMIUM_DETECTED=1"
-findstr /c:" 616 " "!TEMP_FULL_FORMAT!" >nul 2>&1
-if !errorlevel! equ 0 set "PREMIUM_DETECTED=1"
-findstr /c:" 774 " "!TEMP_FULL_FORMAT!" >nul 2>&1
-if !errorlevel! equ 0 set "PREMIUM_DETECTED=1"
-
-rem Also check for 'premium' keyword in MORE INFO column
-findstr /i "premium" "!TEMP_FULL_FORMAT!" > nul
-if !errorlevel! equ 0 set "PREMIUM_DETECTED=1"
+rem Check for specific premium format IDs at line beginning only
+rem Per youtube-format-ids.md: Format 356, 616, 721, 774 are premium-exclusive
+for %%F in (356 616 721 774) do (
+    findstr /r "^%%F[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
+    if !errorlevel! equ 0 (
+        set "PREMIUM_DETECTED=1"
+        echo [INFO] Premium Format ID %%F detected
+    )
+)
 
 if "!PREMIUM_DETECTED!"=="1" (
     set "FINAL_CODEC=PREMIUM"
 ) else (
-    findstr /i "av01 av1" "!TEMP_FULL_FORMAT!" | findstr /v "243 278 394 242 395 396 244 397" > nul
-    if !errorlevel! equ 0 (
+    rem Check for AV1 1080p format IDs (399=30fps, 699=60fps HFR)
+    set "AV1_FOUND=0"
+    for %%F in (399 699) do (
+        findstr /r "^%%F[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
+        if !errorlevel! equ 0 (
+            set "AV1_FOUND=1"
+            echo [INFO] AV1 1080p Format ID %%F detected
+        )
+    )
+    if "!AV1_FOUND!"=="1" (
         set "FINAL_CODEC=AV1"
     ) else (
-        findstr /i "vp09 vp9 vp0" "!TEMP_FULL_FORMAT!" | findstr /v "243 278 394 242 395 396 244 397" > nul
-        if !errorlevel! equ 0 (
+        rem Check for VP9 format IDs (248, 303, 247, 302)
+        set "VP9_FOUND=0"
+        for %%F in (248 303 247 302) do (
+            findstr /r "^%%F[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
+            if !errorlevel! equ 0 (
+                set "VP9_FOUND=1"
+                echo [INFO] VP9 Format ID %%F detected
+            )
+        )
+        rem Also check for vp09 codec string as fallback
+        if "!VP9_FOUND!"=="0" (
+            findstr /i "vp09 vp9" "!TEMP_FULL_FORMAT!" | findstr /v "242 243 244 278 394 395 396 397" >nul 2>&1
+            if !errorlevel! equ 0 (
+                set "VP9_FOUND=1"
+                echo [INFO] VP9 codec detected via codec string
+            )
+        )
+        if "!VP9_FOUND!"=="1" (
             set "FINAL_CODEC=VP9"
         ) else (
-            findstr /i "avc1 h264 avc" "!TEMP_FULL_FORMAT!" | findstr /v "243 278 394 242 395 396 244 397" > nul
+            rem Check for H.264 codec (avc1)
+            findstr /i "avc1" "!TEMP_FULL_FORMAT!" >nul 2>&1
             if !errorlevel! equ 0 (
                 set "FINAL_CODEC=H264"
             )
@@ -255,13 +289,13 @@ echo.
 
 if "!FINAL_CODEC!"=="PREMIUM" (
     echo Action in Main Program: Download + Re-encode to H.265
-    echo Quality: HIGHEST AVAILABLE
+    echo Quality: HIGHEST AVAILABLE - Premium Format Detected
 ) else if "!FINAL_CODEC!"=="AV1" (
     echo Action in Main Program: Download + Re-encode to H.265
-    echo Quality: EXCELLENT - AV1 Codec Detected
+    echo Quality: EXCELLENT - AV1 1080p Codec Detected
 ) else if "!FINAL_CODEC!"=="VP9" (
-    echo Action in Main Program: Download + Re-encode to H.265
-    echo Quality: EXCELLENT - VP9 Codec Detected
+    echo Action in Main Program: Download WITHOUT Re-encoding
+    echo Quality: EXCELLENT - VP9 Codec ^(skip re-encode policy^)
 ) else if "!FINAL_CODEC!"=="H264" (
     echo Action in Main Program: Download WITHOUT Re-encoding
     echo Quality: GOOD - Standard H.264 Codec
