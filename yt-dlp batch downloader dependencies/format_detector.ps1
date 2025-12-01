@@ -68,7 +68,11 @@ $av1HighResFormats = @("399", "699", "400", "700", "401", "701", "402", "571")
 $vp9Formats = @("247", "302", "248", "303", "612", "271", "308", "313", "315", "272")
 
 # Low quality VP9 formats to exclude from generic VP9 detection (720p and below not worth re-encoding anyway)
+# 242: 240p, 243: 360p, 244: 480p, 278: 144p, 598: 144p rare variant
 $vp9LowQualityFormats = @("242", "243", "244", "278", "598")
+
+# Premium VP9 format IDs (should not be counted as regular VP9)
+$premiumVp9Formats = @("356", "616")
 
 # Check for formats array
 if ($videoInfo.formats) {
@@ -113,7 +117,7 @@ if ($videoInfo.formats) {
         if ($formatId -in $vp9Formats) {
             $vp9Detected = $true
         }
-        elseif ($format.vcodec -and $format.vcodec -match "vp0?9" -and $formatId -notin $vp9LowQualityFormats -and $formatId -notin @("356", "616")) {
+        elseif ($format.vcodec -and $format.vcodec -match "vp0?9" -and $formatId -notin $vp9LowQualityFormats -and $formatId -notin $premiumVp9Formats) {
             # VP9 codec detected but not premium formats
             $vp9Detected = $true
         }

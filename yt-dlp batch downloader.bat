@@ -407,19 +407,19 @@ set "CODEC_TYPE=H264"
 
 if "!PREMIUM_DETECTED!"=="1" (
 	set "CODEC_TYPE=PREMIUM"
-	echo   Detected: Premium Bitrate Format ^(above 720p^)
+	echo   Detected: Premium Bitrate Format - Re-encoding to H.265
 	echo   Detected: Premium Bitrate Format - Re-encoding to H.265 >> "!LOG_FILE!"
 ) else if "!AV1_HIGHRES_DETECTED!"=="1" (
 	set "CODEC_TYPE=AV1"
-	echo   Detected: AV1 High-Resolution Format ^(above 720p^)
+	echo   Detected: AV1 High-Res Format - Re-encoding to H.265
 	echo   Detected: AV1 High-Res Format - Re-encoding to H.265 >> "!LOG_FILE!"
 ) else if "!VP9_DETECTED!"=="1" (
 	set "CODEC_TYPE=VP9"
-	echo   Detected: VP9 Codec - Skipping re-encode
+	echo   Detected: VP9 Codec - Skipping re-encode ^(VP9 policy^)
 	echo   Detected: VP9 Codec - Skipping re-encode ^(VP9 policy^) >> "!LOG_FILE!"
 ) else if "!H264_DETECTED!"=="1" (
 	set "CODEC_TYPE=H264"
-	echo   Detected: H.264 Codec - Skipping re-encode
+	echo   Detected: H.264 Codec - Skipping re-encode ^(AVC policy^)
 	echo   Detected: H.264 Codec - Skipping re-encode ^(AVC policy^) >> "!LOG_FILE!"
 )
 rem ============================================================
