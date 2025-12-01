@@ -1,0 +1,43 @@
+================================ 
+Encoding Session Log 
+Date: 01-Mon-12 Time: 03-27 
+Mode: GPU Profile: MIXEDVIDEO 
+Browser: firefox 
+Download Directory: D:\Chunky's Master Folder External Drive\Chunky Premiere Pro Folder\Video Specific Assets and Footage\LIMC video 
+================================ 
+ 
+ 
+Processing: https://www.youtube.com/watch?v=dkL97O7E334 
+Timestamp: Mon 12/01/2025 15:27:52.21 
+  Detected: YouTube Premium subscription active 
+  Detected: Premium Bitrate Format 
+  Action: Downloading Premium and re-encoding to H.265 
+WARNING: Post-Processor arguments given without specifying name. The arguments will be given to all post-processors
+  Status: SUCCESS 
+ 
+Processing: https://www.youtube.com/watch?v=BTuZAYYPWZI 
+Timestamp: Mon 12/01/2025 15:28:29.29 
+  Detected: YouTube Premium subscription active 
+  Detected: Premium Bitrate Format 
+  Action: Downloading Premium and re-encoding to H.265 
+WARNING: Post-Processor arguments given without specifying name. The arguments will be given to all post-processors
+  Status: SUCCESS 
+ 
+Processing: https://www.youtube.com/watch?v=pwVJhK79_qI 
+Timestamp: Mon 12/01/2025 15:29:03.33 
+  Detected: YouTube Premium subscription active 
+  Detected: Premium Bitrate Format 
+  Action: Downloading Premium and re-encoding to H.265 
+WARNING: Post-Processor arguments given without specifying name. The arguments will be given to all post-processors
+  Status: SUCCESS 
+ 
+================================ 
+Download Summary 
+================================ 
+Total Processed: 3 
+Total Failed: 0 
+Premium Re-encoded: 3 
+AV1/VP9 Re-encoded: 0 
+H.264 Skipped: 0 
+Location: D:\Chunky's Master Folder External Drive\Chunky Premiere Pro Folder\Video Specific Assets and Footage\LIMC video 
+================================ 
