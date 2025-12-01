@@ -1,0 +1,104 @@
+================================ 
+Encoding Session Log 
+Date: 01-Mon-12 Time: 05-15 
+Mode: GPU Profile: MIXEDVIDEO 
+Browser: firefox 
+Download Directory: D:\Chunky's Master Folder External Drive\Chunky Premiere Pro Folder\Video Specific Assets and Footage\LIMC video 
+================================ 
+ 
+ 
+Processing: https://www.youtube.com/watch?v=Ci_zad39Uhw 
+Timestamp: Mon 12/01/2025 17:15:21.49 
+  Detected: YouTube Premium subscription active 
+  Detected: Premium Format ID 356 
+  Detected: Premium Format ID 616 
+  Detected: Premium Format ID 721 
+  Detected: Premium Format ID 774 
+  Detected: Premium Bitrate Format 
+  Action: Downloading Premium and re-encoding to H.265 
+  Encoding Profile: MIXEDVIDEO 
+  FFMPEG Args: -c:v hevc_nvenc -preset p7 -rc vbr_hq -cq 8 -qmin 1 -qmax 14 -rc-lookahead 32 -refs 32 -bf 3 -spatial-aq 1 -temporal-aq 1 -aq-strength 8 -c:a aac -b:a 128k 
+WARNING: Post-Processor arguments given without specifying name. The arguments will be given to all post-processors
+  Status: SUCCESS 
+ 
+Processing: https://www.youtube.com/watch?v=ldBCQNOMQaE 
+Timestamp: Mon 12/01/2025 17:16:23.47 
+  Detected: YouTube Premium subscription active 
+  Detected: Premium Format ID 356 
+  Detected: Premium Format ID 616 
+  Detected: Premium Format ID 721 
+  Detected: Premium Format ID 774 
+  Detected: Premium Bitrate Format 
+  Action: Downloading Premium and re-encoding to H.265 
+  Encoding Profile: MIXEDVIDEO 
+  FFMPEG Args: -c:v hevc_nvenc -preset p7 -rc vbr_hq -cq 8 -qmin 1 -qmax 14 -rc-lookahead 32 -refs 32 -bf 3 -spatial-aq 1 -temporal-aq 1 -aq-strength 8 -c:a aac -b:a 128k 
+WARNING: Post-Processor arguments given without specifying name. The arguments will be given to all post-processors
+  Status: SUCCESS 
+ 
+Processing: https://www.youtube.com/watch?v=czcQTc2U6aU 
+Timestamp: Mon 12/01/2025 17:20:19.95 
+  Detected: YouTube Premium subscription active 
+  Detected: Premium Format ID 356 
+  Detected: Premium Format ID 616 
+  Detected: Premium Format ID 721 
+  Detected: Premium Format ID 774 
+  Detected: Premium Bitrate Format 
+  Action: Downloading Premium and re-encoding to H.265 
+  Encoding Profile: MIXEDVIDEO 
+  FFMPEG Args: -c:v hevc_nvenc -preset p7 -rc vbr_hq -cq 8 -qmin 1 -qmax 14 -rc-lookahead 32 -refs 32 -bf 3 -spatial-aq 1 -temporal-aq 1 -aq-strength 8 -c:a aac -b:a 128k 
+WARNING: Post-Processor arguments given without specifying name. The arguments will be given to all post-processors
+  Status: SUCCESS 
+ 
+Processing: https://www.youtube.com/watch?v=WmMkCJeP3no 
+Timestamp: Mon 12/01/2025 17:23:55.77 
+  Detected: YouTube Premium subscription active 
+  Detected: Premium Format ID 356 
+  Detected: Premium Format ID 616 
+  Detected: Premium Format ID 721 
+  Detected: Premium Format ID 774 
+  Detected: Premium Bitrate Format 
+  Action: Downloading Premium and re-encoding to H.265 
+  Encoding Profile: MIXEDVIDEO 
+  FFMPEG Args: -c:v hevc_nvenc -preset p7 -rc vbr_hq -cq 8 -qmin 1 -qmax 14 -rc-lookahead 32 -refs 32 -bf 3 -spatial-aq 1 -temporal-aq 1 -aq-strength 8 -c:a aac -b:a 128k 
+WARNING: Post-Processor arguments given without specifying name. The arguments will be given to all post-processors
+  Status: SUCCESS 
+ 
+Processing: https://www.youtube.com/watch?v=tT6eBFIslMw 
+Timestamp: Mon 12/01/2025 17:24:45.92 
+  Detected: YouTube Premium subscription active 
+  Detected: Premium Format ID 356 
+  Detected: Premium Format ID 616 
+  Detected: Premium Format ID 721 
+  Detected: Premium Format ID 774 
+  Detected: Premium Bitrate Format 
+  Action: Downloading Premium and re-encoding to H.265 
+  Encoding Profile: MIXEDVIDEO 
+  FFMPEG Args: -c:v hevc_nvenc -preset p7 -rc vbr_hq -cq 8 -qmin 1 -qmax 14 -rc-lookahead 32 -refs 32 -bf 3 -spatial-aq 1 -temporal-aq 1 -aq-strength 8 -c:a aac -b:a 128k 
+WARNING: Post-Processor arguments given without specifying name. The arguments will be given to all post-processors
+  Status: SUCCESS 
+ 
+Processing: https://www.youtube.com/watch?v=0Lted68mudM 
+Timestamp: Mon 12/01/2025 17:44:36.62 
+  Detected: YouTube Premium subscription active 
+  Detected: Premium Format ID 356 
+  Detected: Premium Format ID 616 
+  Detected: Premium Format ID 721 
+  Detected: Premium Format ID 774 
+  Detected: Premium Bitrate Format 
+  Action: Downloading Premium and re-encoding to H.265 
+  Encoding Profile: MIXEDVIDEO 
+  FFMPEG Args: -c:v hevc_nvenc -preset p7 -rc vbr_hq -cq 8 -qmin 1 -qmax 14 -rc-lookahead 32 -refs 32 -bf 3 -spatial-aq 1 -temporal-aq 1 -aq-strength 8 -c:a aac -b:a 128k 
+WARNING: Post-Processor arguments given without specifying name. The arguments will be given to all post-processors
+  Status: SUCCESS 
+ 
+================================ 
+Download Summary 
+================================ 
+Total Processed: 6 
+Total Failed: 0 
+Premium Re-encoded: 6 
+AV1 Re-encoded: 0 
+H.264 Skipped: 0 
+VP9 Skipped: 0 
+Location: D:\Chunky's Master Folder External Drive\Chunky Premiere Pro Folder\Video Specific Assets and Footage\LIMC video 
+================================ 
