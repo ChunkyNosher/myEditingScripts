@@ -56,6 +56,33 @@ echo ==============================
 echo YouTube Download Manager
 echo ==============================
 echo.
+rem Display current configuration
+echo ==== CURRENT CONFIGURATION ====
+if exist "%BROWSER_FILE%" (
+	set /p CURRENT_BROWSER=<"%BROWSER_FILE%"
+	echo Browser: !CURRENT_BROWSER!
+) else (
+	echo Browser: [NOT SET]
+)
+if exist "%VIDEO_DIR_FILE%" (
+	set /p CURRENT_VIDEO_DIR=<"%VIDEO_DIR_FILE%"
+	echo Video Directory: !CURRENT_VIDEO_DIR!
+) else (
+	echo Video Directory: [NOT SET]
+)
+if exist "%AUDIO_DIR_FILE%" (
+	set /p CURRENT_AUDIO_DIR=<"%AUDIO_DIR_FILE%"
+	echo Audio Directory: !CURRENT_AUDIO_DIR!
+) else (
+	echo Audio Directory: [NOT SET]
+)
+if exist "%THUMBNAIL_DIR_FILE%" (
+	set /p CURRENT_THUMB_DIR=<"%THUMBNAIL_DIR_FILE%"
+	echo Thumbnail Directory: !CURRENT_THUMB_DIR!
+) else (
+	echo Thumbnail Directory: [NOT SET]
+)
+echo.
 if exist "%LIST_FILE%" (
 	for /f %%C in ('find /c /v "" ^< "%LIST_FILE%"') do set "COUNT=%%C"
 ) else (
@@ -82,9 +109,10 @@ echo R. Set browser for Premium access
 echo T. View list
 echo Y. Clear list
 echo U. Add links to list
-echo I. Exit
+echo I. Remove specific link from list
+echo O. Exit
 echo.
-choice /c 1234567QWERTYUI /n /m "Choose an option: "
+choice /c 1234567QWERTYUIO /n /m "Choose an option: "
 set CHOICE=%errorlevel%
 if %CHOICE%==1 goto GPU_MENU
 if %CHOICE%==2 goto CPU_MENU
@@ -100,7 +128,8 @@ if %CHOICE%==11 goto SET_BROWSER
 if %CHOICE%==12 goto VIEW_LIST
 if %CHOICE%==13 goto CLEAR_LIST
 if %CHOICE%==14 goto ADD_LINKS
-if %CHOICE%==15 goto END
+if %CHOICE%==15 goto REMOVE_LINK
+if %CHOICE%==16 goto END
 goto MAIN_MENU
 
 :GPU_MENU
@@ -562,34 +591,79 @@ goto MAIN_MENU
 
 :SET_VIDEO_DIR
 cls
-set /p "NEW_DIR=Enter video download directory: "
-if not "!NEW_DIR!"=="" (
-	echo !NEW_DIR!>"%VIDEO_DIR_FILE%"
-	echo Video directory set!
+echo ==============================
+echo Set Video Download Directory
+echo ==============================
+echo.
+if exist "%VIDEO_DIR_FILE%" (
+	set /p CURRENT_DIR=<"%VIDEO_DIR_FILE%"
+	echo Current directory: !CURRENT_DIR!
+) else (
+	echo Current directory: [NOT SET]
 )
 echo.
+set /p "NEW_DIR=Enter new video download directory (or press Enter to cancel): "
+if "!NEW_DIR!"=="" (
+	echo.
+	echo No changes made.
+	pause
+	goto MAIN_MENU
+)
+echo !NEW_DIR!>"%VIDEO_DIR_FILE%"
+echo.
+echo Video directory set to: !NEW_DIR!
 pause
 goto MAIN_MENU
 
 :SET_AUDIO_DIR
 cls
-set /p "NEW_DIR=Enter audio download directory: "
-if not "!NEW_DIR!"=="" (
-	echo !NEW_DIR!>"%AUDIO_DIR_FILE%"
-	echo Audio directory set!
+echo ==============================
+echo Set Audio Download Directory
+echo ==============================
+echo.
+if exist "%AUDIO_DIR_FILE%" (
+	set /p CURRENT_DIR=<"%AUDIO_DIR_FILE%"
+	echo Current directory: !CURRENT_DIR!
+) else (
+	echo Current directory: [NOT SET]
 )
 echo.
+set /p "NEW_DIR=Enter new audio download directory (or press Enter to cancel): "
+if "!NEW_DIR!"=="" (
+	echo.
+	echo No changes made.
+	pause
+	goto MAIN_MENU
+)
+echo !NEW_DIR!>"%AUDIO_DIR_FILE%"
+echo.
+echo Audio directory set to: !NEW_DIR!
 pause
 goto MAIN_MENU
 
 :SET_THUMBNAIL_DIR
 cls
-set /p "NEW_DIR=Enter thumbnail download directory: "
-if not "!NEW_DIR!"=="" (
-	echo !NEW_DIR!>"%THUMBNAIL_DIR_FILE%"
-	echo Thumbnail directory set!
+echo ==============================
+echo Set Thumbnail Download Directory
+echo ==============================
+echo.
+if exist "%THUMBNAIL_DIR_FILE%" (
+	set /p CURRENT_DIR=<"%THUMBNAIL_DIR_FILE%"
+	echo Current directory: !CURRENT_DIR!
+) else (
+	echo Current directory: [NOT SET]
 )
 echo.
+set /p "NEW_DIR=Enter new thumbnail download directory (or press Enter to cancel): "
+if "!NEW_DIR!"=="" (
+	echo.
+	echo No changes made.
+	pause
+	goto MAIN_MENU
+)
+echo !NEW_DIR!>"%THUMBNAIL_DIR_FILE%"
+echo.
+echo Thumbnail directory set to: !NEW_DIR!
 pause
 goto MAIN_MENU
 
@@ -618,7 +692,35 @@ echo Current Download List
 echo ==============================
 echo.
 if exist "%LIST_FILE%" (
-	type "%LIST_FILE%"
+	rem Check if browser is set for fetching titles
+	if exist "%BROWSER_FILE%" (
+		set /p VIEW_BROWSER=<"%BROWSER_FILE%"
+		echo Fetching video titles...
+		echo.
+		set "VIEW_NUM=0"
+		for /f "usebackq delims=" %%U in ("%LIST_FILE%") do (
+			set /a VIEW_NUM+=1
+			set "VIEW_URL=%%U"
+			rem Get video title using yt-dlp
+			for /f "usebackq delims=" %%T in (`yt-dlp --get-title "%%U" --cookies-from-browser !VIEW_BROWSER! --socket-timeout 10 2^>nul`) do (
+				set "VIEW_TITLE=%%T"
+			)
+			if defined VIEW_TITLE (
+				echo !VIEW_NUM!. %%U - !VIEW_TITLE!
+			) else (
+				echo !VIEW_NUM!. %%U - [Title unavailable]
+			)
+			set "VIEW_TITLE="
+		)
+	) else (
+		echo [Browser not set - titles unavailable]
+		echo.
+		set "VIEW_NUM=0"
+		for /f "usebackq delims=" %%U in ("%LIST_FILE%") do (
+			set /a VIEW_NUM+=1
+			echo !VIEW_NUM!. %%U
+		)
+	)
 ) else (
 	echo List is empty
 )
@@ -637,6 +739,92 @@ echo.
 pause
 goto MAIN_MENU
 
+:REMOVE_LINK
+cls
+echo ==============================
+echo Remove Specific Link
+echo ==============================
+echo.
+if not exist "%LIST_FILE%" (
+	echo List is empty - nothing to remove.
+	echo.
+	pause
+	goto MAIN_MENU
+)
+rem Count and display links with numbers
+set "LINK_NUM=0"
+for /f "usebackq delims=" %%U in ("%LIST_FILE%") do (
+	set /a LINK_NUM+=1
+	echo !LINK_NUM!. %%U
+)
+if !LINK_NUM! equ 0 (
+	echo List is empty - nothing to remove.
+	echo.
+	pause
+	goto MAIN_MENU
+)
+echo.
+echo Total: !LINK_NUM! link(s)
+echo.
+set /p "REMOVE_NUM=Enter link number to remove (or press Enter to cancel): "
+if "!REMOVE_NUM!"=="" (
+	echo.
+	echo No changes made.
+	pause
+	goto MAIN_MENU
+)
+rem Validate input is a number
+set "VALID_NUM="
+for /f "delims=0123456789" %%i in ("!REMOVE_NUM!") do set "VALID_NUM=%%i"
+if not "!VALID_NUM!"=="" (
+	echo.
+	echo Invalid input. Please enter a number.
+	pause
+	goto MAIN_MENU
+)
+rem Check if number is in range
+if !REMOVE_NUM! lss 1 (
+	echo.
+	echo Invalid number. Please enter a number between 1 and !LINK_NUM!.
+	pause
+	goto MAIN_MENU
+)
+if !REMOVE_NUM! gtr !LINK_NUM! (
+	echo.
+	echo Invalid number. Please enter a number between 1 and !LINK_NUM!.
+	pause
+	goto MAIN_MENU
+)
+rem Create temp file and copy all lines except the one to remove
+set "TEMP_LIST=%DEPS_FOLDER%\temp_list.txt"
+set "CURRENT_LINE=0"
+if exist "!TEMP_LIST!" del "!TEMP_LIST!"
+for /f "usebackq delims=" %%U in ("%LIST_FILE%") do (
+	set /a CURRENT_LINE+=1
+	if not !CURRENT_LINE! equ !REMOVE_NUM! (
+		echo %%U>>"!TEMP_LIST!"
+	) else (
+		echo Removed: %%U
+	)
+)
+rem Replace original file with temp file
+if exist "!TEMP_LIST!" (
+	move /Y "!TEMP_LIST!" "%LIST_FILE%" >nul 2>&1
+	if !errorlevel! neq 0 (
+		echo.
+		echo Error: Failed to update list file.
+		pause
+		goto MAIN_MENU
+	)
+) else (
+	rem If temp file doesn't exist, all lines were removed
+	del "%LIST_FILE%" >nul 2>&1
+)
+echo.
+echo Link removed successfully.
+pause
+goto MAIN_MENU
+
 :ADD_LINKS
 cls
 echo Add Links to Download List
@@ -645,13 +833,33 @@ echo Enter URLs one at a time, pressing Enter after each.
 echo Type 'done' or leave blank to finish adding links.
 echo ==============================
 echo.
+rem Check if browser is set for fetching titles
+if exist "%BROWSER_FILE%" (
+	set /p ADD_BROWSER=<"%BROWSER_FILE%"
+	set "SHOW_TITLES=1"
+) else (
+	set "SHOW_TITLES=0"
+)
 :ADD_LINKS_LOOP
 set "NEW_LINK="
 set /p "NEW_LINK=Enter URL: "
 if "!NEW_LINK!"=="" goto ADD_LINKS_DONE
 if /i "!NEW_LINK!"=="done" goto ADD_LINKS_DONE
 echo !NEW_LINK!>>"%LIST_FILE%"
-echo   Link added!
+if "!SHOW_TITLES!"=="1" (
+	rem Get video title using yt-dlp
+	set "ADD_TITLE="
+	for /f "usebackq delims=" %%T in (`yt-dlp --get-title "!NEW_LINK!" --cookies-from-browser !ADD_BROWSER! --socket-timeout 10 2^>nul`) do (
+		set "ADD_TITLE=%%T"
+	)
+	if defined ADD_TITLE (
+		echo   Added: !NEW_LINK! - !ADD_TITLE!
+	) else (
+		echo   Added: !NEW_LINK! - [Title unavailable]
+	)
+) else (
+	echo   Link added!
+)
 goto ADD_LINKS_LOOP
 :ADD_LINKS_DONE
 echo.
