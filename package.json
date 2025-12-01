@@ -1,0 +1,7 @@
+{
+  "scripts": {
+    "lint:bat": "python -m blinter *.bat",
+    "lint:bat:install": "pip install Blinter",
+    "validate": "npm run lint:bat"
+  }
+}
