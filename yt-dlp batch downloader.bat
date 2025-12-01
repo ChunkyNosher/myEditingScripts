@@ -702,7 +702,7 @@ if exist "%LIST_FILE%" (
 			set /a VIEW_NUM+=1
 			set "VIEW_URL=%%U"
 			rem Get video title using yt-dlp
-			for /f "usebackq delims=" %%T in (`yt-dlp --get-title "%%U" --cookies-from-browser !VIEW_BROWSER! 2^>nul`) do (
+			for /f "usebackq delims=" %%T in (`yt-dlp --get-title "%%U" --cookies-from-browser !VIEW_BROWSER! --socket-timeout 10 2^>nul`) do (
 				set "VIEW_TITLE=%%T"
 			)
 			if defined VIEW_TITLE (
@@ -809,7 +809,13 @@ for /f "usebackq delims=" %%U in ("%LIST_FILE%") do (
 )
 rem Replace original file with temp file
 if exist "!TEMP_LIST!" (
-	move /Y "!TEMP_LIST!" "%LIST_FILE%" >nul
+	move /Y "!TEMP_LIST!" "%LIST_FILE%" >nul 2>&1
+	if !errorlevel! neq 0 (
+		echo.
+		echo Error: Failed to update list file.
+		pause
+		goto MAIN_MENU
+	)
 ) else (
 	rem If temp file doesn't exist, all lines were removed
 	del "%LIST_FILE%" >nul 2>&1
@@ -843,7 +849,7 @@ echo !NEW_LINK!>>"%LIST_FILE%"
 if "!SHOW_TITLES!"=="1" (
 	rem Get video title using yt-dlp
 	set "ADD_TITLE="
-	for /f "usebackq delims=" %%T in (`yt-dlp --get-title "!NEW_LINK!" --cookies-from-browser !ADD_BROWSER! 2^>nul`) do (
+	for /f "usebackq delims=" %%T in (`yt-dlp --get-title "!NEW_LINK!" --cookies-from-browser !ADD_BROWSER! --socket-timeout 10 2^>nul`) do (
 		set "ADD_TITLE=%%T"
 	)
 	if defined ADD_TITLE (
