@@ -1,12 +1,54 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-set "LIST_FILE=yt_download_list.txt"
-set "VIDEO_DIR_FILE=video_dir.txt"
-set "AUDIO_DIR_FILE=audio_dir.txt"
-set "THUMBNAIL_DIR_FILE=thumbnail_dir.txt"
-set "BROWSER_FILE=browser_choice.txt"
-set "TEMP_FORMAT_FILE=temp_format_check.txt"
+rem ==============================
+rem Dependencies folder setup
+rem ==============================
+set "DEPS_FOLDER=yt-dlp batch downloader dependencies"
+set "LOGS_FOLDER=%DEPS_FOLDER%\logs"
+
+rem Create dependencies and logs folders if they don't exist
+if not exist "%DEPS_FOLDER%" mkdir "%DEPS_FOLDER%"
+if not exist "%LOGS_FOLDER%" mkdir "%LOGS_FOLDER%"
+
+rem Define file paths inside dependencies folder
+set "LIST_FILE=%DEPS_FOLDER%\yt_download_list.txt"
+set "VIDEO_DIR_FILE=%DEPS_FOLDER%\video_dir.txt"
+set "AUDIO_DIR_FILE=%DEPS_FOLDER%\audio_dir.txt"
+set "THUMBNAIL_DIR_FILE=%DEPS_FOLDER%\thumbnail_dir.txt"
+set "BROWSER_FILE=%DEPS_FOLDER%\browser_choice.txt"
+set "TEMP_FORMAT_FILE=%DEPS_FOLDER%\temp_format_check.txt"
+
+rem Migrate old files to new location if they exist in the current directory
+if exist "yt_download_list.txt" (
+	if not exist "%LIST_FILE%" move "yt_download_list.txt" "%LIST_FILE%" >nul 2>&1
+)
+if exist "video_dir.txt" (
+	if not exist "%VIDEO_DIR_FILE%" move "video_dir.txt" "%VIDEO_DIR_FILE%" >nul 2>&1
+)
+if exist "audio_dir.txt" (
+	if not exist "%AUDIO_DIR_FILE%" move "audio_dir.txt" "%AUDIO_DIR_FILE%" >nul 2>&1
+)
+if exist "thumbnail_dir.txt" (
+	if not exist "%THUMBNAIL_DIR_FILE%" move "thumbnail_dir.txt" "%THUMBNAIL_DIR_FILE%" >nul 2>&1
+)
+if exist "browser_choice.txt" (
+	if not exist "%BROWSER_FILE%" move "browser_choice.txt" "%BROWSER_FILE%" >nul 2>&1
+)
+if exist "temp_format_check.txt" (
+	del "temp_format_check.txt" >nul 2>&1
+)
+
+rem Move old logs folder if it exists
+if exist "yt-dlp batch downloader logs" (
+	if not exist "%LOGS_FOLDER%" (
+		move "yt-dlp batch downloader logs" "%LOGS_FOLDER%" >nul 2>&1
+	) else (
+		rem Copy contents to new location
+		xcopy /E /Y "yt-dlp batch downloader logs\*" "%LOGS_FOLDER%\" >nul 2>&1
+		rd /S /Q "yt-dlp batch downloader logs" >nul 2>&1
+	)
+)
 
 :MAIN_MENU
 cls
@@ -202,8 +244,25 @@ set FAILED=0
 set PREMIUM_ENCODED=0
 set AV1VP9_ENCODED=0
 set H264_SKIPPED=0
+
+rem Create timestamp for log file
+for /f "tokens=1-3 delims=/ " %%a in ('date /t') do set "LOG_DATE=%%c-%%a-%%b"
+for /f "tokens=1-2 delims=: " %%a in ('time /t') do set "LOG_TIME=%%a-%%b"
+set "LOG_FILE=%LOGS_FOLDER%\encoding_!LOG_DATE!_!LOG_TIME!_!MODE!_!PROFILE!.txt"
+
+rem Start logging
+echo ================================ > "!LOG_FILE!"
+echo Encoding Session Log >> "!LOG_FILE!"
+echo Date: !LOG_DATE! Time: !LOG_TIME! >> "!LOG_FILE!"
+echo Mode: !MODE! Profile: !PROFILE! >> "!LOG_FILE!"
+echo Browser: !BROWSER_CHOICE! >> "!LOG_FILE!"
+echo Download Directory: !DOWNLOAD_DIR! >> "!LOG_FILE!"
+echo ================================ >> "!LOG_FILE!"
+echo. >> "!LOG_FILE!"
+
 echo.
 echo Starting processing with !PROFILE! profile...
+echo Logging to: !LOG_FILE!
 echo.
 for /f "usebackq delims=" %%U in ("%LIST_FILE%") do (
 	call :DOWNLOAD_AND_ENCODE "%%U"
@@ -219,6 +278,20 @@ echo AV1/VP9 Re-encoded: !AV1VP9_ENCODED!
 echo H.264 Skipped: !H264_SKIPPED!
 echo Location: !DOWNLOAD_DIR!
 echo ================================
+
+rem Write summary to log
+echo. >> "!LOG_FILE!"
+echo ================================ >> "!LOG_FILE!"
+echo Download Summary >> "!LOG_FILE!"
+echo ================================ >> "!LOG_FILE!"
+echo Total Processed: !SUCCESS! >> "!LOG_FILE!"
+echo Total Failed: !FAILED! >> "!LOG_FILE!"
+echo Premium Re-encoded: !PREMIUM_ENCODED! >> "!LOG_FILE!"
+echo AV1/VP9 Re-encoded: !AV1VP9_ENCODED! >> "!LOG_FILE!"
+echo H.264 Skipped: !H264_SKIPPED! >> "!LOG_FILE!"
+echo Location: !DOWNLOAD_DIR! >> "!LOG_FILE!"
+echo ================================ >> "!LOG_FILE!"
+echo Log saved to: !LOG_FILE!
 pause
 goto MAIN_MENU
 
@@ -226,40 +299,103 @@ goto MAIN_MENU
 setlocal enabledelayedexpansion
 set "VIDEO_URL=%~1"
 echo Processing: !VIDEO_URL!
-yt-dlp --list-formats "!VIDEO_URL!" --cookies-from-browser !BROWSER_CHOICE! 2>nul > "!TEMP_FORMAT_FILE!"
+echo. >> "!LOG_FILE!"
+echo Processing: !VIDEO_URL! >> "!LOG_FILE!"
+echo Timestamp: %date% %time% >> "!LOG_FILE!"
+
+rem Get format list with verbose output to capture premium detection
+yt-dlp --list-formats "!VIDEO_URL!" --cookies-from-browser !BROWSER_CHOICE! -v 2>"!TEMP_FORMAT_FILE!.debug" > "!TEMP_FORMAT_FILE!"
+
+rem Check for YouTube Premium subscription detection in verbose output
+set "HAS_PREMIUM_SUB=0"
+findstr /i /c:"Detected YouTube Premium" "!TEMP_FORMAT_FILE!.debug" >nul 2>&1
+if !errorlevel! equ 0 (
+	set "HAS_PREMIUM_SUB=1"
+	echo   Detected: YouTube Premium subscription active
+	echo   Detected: YouTube Premium subscription active >> "!LOG_FILE!"
+)
+
+rem Check for premium format IDs (356, 616, 774 are premium-exclusive formats)
 set "CODEC_TYPE=H264"
+set "PREMIUM_DETECTED=0"
+
+rem Check for premium format IDs in the format list
+findstr /r "^356[ 	]" "!TEMP_FORMAT_FILE!" >nul 2>&1
+if !errorlevel! equ 0 (
+	set "PREMIUM_DETECTED=1"
+)
+findstr /r "^616[ 	]" "!TEMP_FORMAT_FILE!" >nul 2>&1
+if !errorlevel! equ 0 (
+	set "PREMIUM_DETECTED=1"
+)
+findstr /r "^774[ 	]" "!TEMP_FORMAT_FILE!" >nul 2>&1
+if !errorlevel! equ 0 (
+	set "PREMIUM_DETECTED=1"
+)
+
+rem Also check with leading spaces for format IDs
+findstr /c:" 356 " "!TEMP_FORMAT_FILE!" >nul 2>&1
+if !errorlevel! equ 0 (
+	set "PREMIUM_DETECTED=1"
+)
+findstr /c:" 616 " "!TEMP_FORMAT_FILE!" >nul 2>&1
+if !errorlevel! equ 0 (
+	set "PREMIUM_DETECTED=1"
+)
+findstr /c:" 774 " "!TEMP_FORMAT_FILE!" >nul 2>&1
+if !errorlevel! equ 0 (
+	set "PREMIUM_DETECTED=1"
+)
+
+rem Check for premium in MORE INFO column (high bitrate indicator)
 findstr /i "premium" "!TEMP_FORMAT_FILE!" >nul 2>&1
 if !errorlevel! equ 0 (
+	set "PREMIUM_DETECTED=1"
+)
+
+if "!PREMIUM_DETECTED!"=="1" (
 	set "CODEC_TYPE=PREMIUM"
-	echo   Detected: Premium Bitrate
+	echo   Detected: Premium Bitrate Format
+	echo   Detected: Premium Bitrate Format >> "!LOG_FILE!"
 ) else (
+	rem Check for AV1 codec (excluding low quality format IDs)
 	findstr /i "av01" "!TEMP_FORMAT_FILE!" | findstr /v "243 278 394 242 395 396 244 397" >nul 2>&1
 	if !errorlevel! equ 0 (
 		set "CODEC_TYPE=AV1"
 		echo   Detected: AV1 Codec
+		echo   Detected: AV1 Codec >> "!LOG_FILE!"
 	) else (
+		rem Check for VP9 codec
 		findstr /i "vp09 vp9" "!TEMP_FORMAT_FILE!" | findstr /v "243 278 394 242 395 396 244 397" >nul 2>&1
 		if !errorlevel! equ 0 (
 			set "CODEC_TYPE=VP9"
 			echo   Detected: VP9 Codec
+			echo   Detected: VP9 Codec >> "!LOG_FILE!"
 		) else (
+			rem Check for H.264 codec
 			findstr /i "avc1" "!TEMP_FORMAT_FILE!" >nul 2>&1
 			if !errorlevel! equ 0 (
 				set "CODEC_TYPE=H264"
 				echo   Detected: H.264 - Skipping re-encode
+				echo   Detected: H.264 - Skipping re-encode >> "!LOG_FILE!"
 			)
 		)
 	)
 )
 if "!CODEC_TYPE!"=="H264" (
 	echo   Downloading H.264 only...
-	yt-dlp -f bestvideo+bestaudio --merge-output-format mp4 --cookies-from-browser !BROWSER_CHOICE! --progress -o "!DOWNLOAD_DIR!\%%(title)s H264.%%(ext)s" "!VIDEO_URL!"
+	echo   Action: Downloading H.264 only >> "!LOG_FILE!"
+	yt-dlp -f bestvideo+bestaudio --merge-output-format mp4 --cookies-from-browser !BROWSER_CHOICE! --progress -o "!DOWNLOAD_DIR!\%%(title)s H264.%%(ext)s" "!VIDEO_URL!" 2>>"!LOG_FILE!"
 	if !errorlevel! equ 0 (
+		echo   Status: SUCCESS >> "!LOG_FILE!"
+		if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 		endlocal
 		set /a SUCCESS+=1
 		set /a H264_SKIPPED+=1
 		exit /b
 	) else (
+		echo   Status: FAILED >> "!LOG_FILE!"
+		if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 		endlocal
 		set /a FAILED+=1
 		exit /b
@@ -268,17 +404,23 @@ if "!CODEC_TYPE!"=="H264" (
 if "!CODEC_TYPE!"=="PREMIUM" (
 	if "!MODE!"=="NOENC" (
 		echo   Downloading Premium only...
-		yt-dlp -f bestvideo+bestaudio --merge-output-format mp4 --cookies-from-browser !BROWSER_CHOICE! --progress -o "!DOWNLOAD_DIR!\%%(title)s PREMIUM.%%(ext)s" "!VIDEO_URL!"
+		echo   Action: Downloading Premium only ^(no re-encode^) >> "!LOG_FILE!"
+		yt-dlp -f bestvideo+bestaudio --merge-output-format mp4 --cookies-from-browser !BROWSER_CHOICE! --progress -o "!DOWNLOAD_DIR!\%%(title)s PREMIUM.%%(ext)s" "!VIDEO_URL!" 2>>"!LOG_FILE!"
 	) else (
 		echo   Downloading Premium and re-encoding to H.265...
-		yt-dlp -f bestvideo+bestaudio --merge-output-format mp4 --cookies-from-browser !BROWSER_CHOICE! --progress --postprocessor-args "!FFMPEG_ARGS!" -o "!DOWNLOAD_DIR!\%%(title)s PREMIUM_!MODE!.%%(ext)s" "!VIDEO_URL!"
+		echo   Action: Downloading Premium and re-encoding to H.265 >> "!LOG_FILE!"
+		yt-dlp -f bestvideo+bestaudio --merge-output-format mp4 --cookies-from-browser !BROWSER_CHOICE! --progress --postprocessor-args "!FFMPEG_ARGS!" -o "!DOWNLOAD_DIR!\%%(title)s PREMIUM_!MODE!.%%(ext)s" "!VIDEO_URL!" 2>>"!LOG_FILE!"
 	)
 	if !errorlevel! equ 0 (
+		echo   Status: SUCCESS >> "!LOG_FILE!"
+		if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 		endlocal
 		set /a SUCCESS+=1
 		set /a PREMIUM_ENCODED+=1
 		exit /b
 	) else (
+		echo   Status: FAILED >> "!LOG_FILE!"
+		if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 		endlocal
 		set /a FAILED+=1
 		exit /b
@@ -287,17 +429,23 @@ if "!CODEC_TYPE!"=="PREMIUM" (
 if "!CODEC_TYPE!"=="AV1" (
 	if "!MODE!"=="NOENC" (
 		echo   Downloading AV1 only...
-		yt-dlp -f bestvideo+bestaudio --merge-output-format mp4 --cookies-from-browser !BROWSER_CHOICE! --progress -o "!DOWNLOAD_DIR!\%%(title)s AV1.%%(ext)s" "!VIDEO_URL!"
+		echo   Action: Downloading AV1 only ^(no re-encode^) >> "!LOG_FILE!"
+		yt-dlp -f bestvideo+bestaudio --merge-output-format mp4 --cookies-from-browser !BROWSER_CHOICE! --progress -o "!DOWNLOAD_DIR!\%%(title)s AV1.%%(ext)s" "!VIDEO_URL!" 2>>"!LOG_FILE!"
 	) else (
 		echo   Downloading AV1 and re-encoding to H.265...
-		yt-dlp -f bestvideo+bestaudio --merge-output-format mp4 --cookies-from-browser !BROWSER_CHOICE! --progress --postprocessor-args "!FFMPEG_ARGS!" -o "!DOWNLOAD_DIR!\%%(title)s AV1_!MODE!.%%(ext)s" "!VIDEO_URL!"
+		echo   Action: Downloading AV1 and re-encoding to H.265 >> "!LOG_FILE!"
+		yt-dlp -f bestvideo+bestaudio --merge-output-format mp4 --cookies-from-browser !BROWSER_CHOICE! --progress --postprocessor-args "!FFMPEG_ARGS!" -o "!DOWNLOAD_DIR!\%%(title)s AV1_!MODE!.%%(ext)s" "!VIDEO_URL!" 2>>"!LOG_FILE!"
 	)
 	if !errorlevel! equ 0 (
+		echo   Status: SUCCESS >> "!LOG_FILE!"
+		if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 		endlocal
 		set /a SUCCESS+=1
 		set /a AV1VP9_ENCODED+=1
 		exit /b
 	) else (
+		echo   Status: FAILED >> "!LOG_FILE!"
+		if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 		endlocal
 		set /a FAILED+=1
 		exit /b
@@ -306,23 +454,30 @@ if "!CODEC_TYPE!"=="AV1" (
 if "!CODEC_TYPE!"=="VP9" (
 	if "!MODE!"=="NOENC" (
 		echo   Downloading VP9 only...
-		yt-dlp -f bestvideo+bestaudio --merge-output-format mp4 --cookies-from-browser !BROWSER_CHOICE! --progress -o "!DOWNLOAD_DIR!\%%(title)s VP9.%%(ext)s" "!VIDEO_URL!"
+		echo   Action: Downloading VP9 only ^(no re-encode^) >> "!LOG_FILE!"
+		yt-dlp -f bestvideo+bestaudio --merge-output-format mp4 --cookies-from-browser !BROWSER_CHOICE! --progress -o "!DOWNLOAD_DIR!\%%(title)s VP9.%%(ext)s" "!VIDEO_URL!" 2>>"!LOG_FILE!"
 	) else (
 		echo   Downloading VP9 and re-encoding to H.265...
-		yt-dlp -f bestvideo+bestaudio --merge-output-format mp4 --cookies-from-browser !BROWSER_CHOICE! --progress --postprocessor-args "!FFMPEG_ARGS!" -o "!DOWNLOAD_DIR!\%%(title)s VP9_!MODE!.%%(ext)s" "!VIDEO_URL!"
+		echo   Action: Downloading VP9 and re-encoding to H.265 >> "!LOG_FILE!"
+		yt-dlp -f bestvideo+bestaudio --merge-output-format mp4 --cookies-from-browser !BROWSER_CHOICE! --progress --postprocessor-args "!FFMPEG_ARGS!" -o "!DOWNLOAD_DIR!\%%(title)s VP9_!MODE!.%%(ext)s" "!VIDEO_URL!" 2>>"!LOG_FILE!"
 	)
 	if !errorlevel! equ 0 (
+		echo   Status: SUCCESS >> "!LOG_FILE!"
+		if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 		endlocal
 		set /a SUCCESS+=1
 		set /a AV1VP9_ENCODED+=1
 		exit /b
 	) else (
+		echo   Status: FAILED >> "!LOG_FILE!"
+		if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 		endlocal
 		set /a FAILED+=1
 		exit /b
 	)
 )
 if exist "!TEMP_FORMAT_FILE!" del "!TEMP_FORMAT_FILE!"
+if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 endlocal
 exit /b
 
@@ -487,13 +642,22 @@ goto MAIN_MENU
 :ADD_LINKS
 cls
 echo Add Links to Download List
+echo ==============================
+echo Enter URLs one at a time, pressing Enter after each.
+echo Type 'done' or leave blank to finish adding links.
+echo ==============================
 echo.
-set /p "NEW_LINK=Enter URL (leave blank to skip): "
-if not "!NEW_LINK!"=="" (
-	echo !NEW_LINK!>>"%LIST_FILE%"
-	echo Link added!
-)
+:ADD_LINKS_LOOP
+set "NEW_LINK="
+set /p "NEW_LINK=Enter URL: "
+if "!NEW_LINK!"=="" goto ADD_LINKS_DONE
+if /i "!NEW_LINK!"=="done" goto ADD_LINKS_DONE
+echo !NEW_LINK!>>"%LIST_FILE%"
+echo   Link added!
+goto ADD_LINKS_LOOP
+:ADD_LINKS_DONE
 echo.
+echo Finished adding links.
 pause
 goto MAIN_MENU
 
