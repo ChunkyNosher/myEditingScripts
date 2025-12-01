@@ -335,101 +335,108 @@ echo. >> "!LOG_FILE!"
 echo Processing: !VIDEO_URL! >> "!LOG_FILE!"
 echo Timestamp: %date% %time% >> "!LOG_FILE!"
 
-rem Get format list with verbose output to capture premium detection
-yt-dlp --list-formats "!VIDEO_URL!" --cookies-from-browser !BROWSER_CHOICE! -v 2>"!TEMP_FORMAT_FILE!.debug" > "!TEMP_FORMAT_FILE!"
+rem ============================================================
+rem STEP 1: Generate JSON output from yt-dlp for reliable format detection
+rem ============================================================
+set "JSON_FILE=%DEPS_FOLDER%\temp_format_check.json"
+yt-dlp -J "!VIDEO_URL!" --cookies-from-browser !BROWSER_CHOICE! --quiet > "!JSON_FILE!" 2>nul
 
-rem Check for YouTube Premium subscription detection in verbose output
-findstr /i /c:"Detected YouTube Premium" "!TEMP_FORMAT_FILE!.debug" >nul 2>&1
-if !errorlevel! equ 0 (
-	echo   Detected: YouTube Premium subscription active
-	echo   Detected: YouTube Premium subscription active >> "!LOG_FILE!"
+rem Check if JSON file was created successfully
+if not exist "!JSON_FILE!" (
+	echo   ERROR: Failed to retrieve video information
+	echo   ERROR: Failed to retrieve video information >> "!LOG_FILE!"
+	endlocal
+	set /a FAILED+=1
+	exit /b
 )
 
-rem Check for premium format IDs (356, 616, 721, 774 are premium-exclusive formats)
-rem Per youtube-format-ids.md: Only match format IDs at line start to avoid false positives
-set "CODEC_TYPE=H264"
+rem Check if JSON file is empty
+for %%A in ("!JSON_FILE!") do if %%~zA equ 0 (
+	echo   ERROR: Empty JSON response from yt-dlp
+	echo   ERROR: Empty JSON response from yt-dlp >> "!LOG_FILE!"
+	if exist "!JSON_FILE!" del "!JSON_FILE!"
+	endlocal
+	set /a FAILED+=1
+	exit /b
+)
+
+rem ============================================================
+rem STEP 2: Parse JSON with PowerShell format_detector.ps1
+rem ============================================================
+set "PS_SCRIPT=%DEPS_FOLDER%\format_detector.ps1"
+if not exist "!PS_SCRIPT!" (
+	echo   ERROR: format_detector.ps1 not found
+	echo   ERROR: format_detector.ps1 not found >> "!LOG_FILE!"
+	if exist "!JSON_FILE!" del "!JSON_FILE!"
+	endlocal
+	set /a FAILED+=1
+	exit /b
+)
+
+rem Initialize detection variables
 set "PREMIUM_DETECTED=0"
+set "AV1_HIGHRES_DETECTED=0"
+set "VP9_DETECTED=0"
+set "H264_DETECTED=0"
+set "PREMIUM_FORMAT_IDS="
+set "AV1_FORMAT_IDS="
+set "FORMAT_IDS="
 
-rem Check for specific premium format IDs at line beginning (format ID column)
-rem Format 356: VP9 1080p Premium (HTTPS)
-rem Format 616: VP9 1080p Premium (m3u8) - deprecated but still check
-rem Format 721: AV1 1080p 60fps Premium
-rem Format 774: Premium audio
-for %%F in (356 616 721 774) do (
-	findstr /r "^%%F[ 	]" "!TEMP_FORMAT_FILE!" >nul 2>&1
-	if !errorlevel! equ 0 (
-		set "PREMIUM_DETECTED=1"
-		echo   Detected: Premium Format ID %%F >> "!LOG_FILE!"
-	)
+rem Execute PowerShell and capture output
+for /f "usebackq tokens=1,2 delims==" %%A in (`powershell -ExecutionPolicy Bypass -File "!PS_SCRIPT!" "!JSON_FILE!" 2^>nul`) do (
+	set "%%A=%%B"
 )
+
+rem Clean up JSON file
+if exist "!JSON_FILE!" del "!JSON_FILE!"
+
+rem ============================================================
+rem STEP 3: Determine codec type based on detection results
+rem ============================================================
+rem Log detected format IDs
+if not "!PREMIUM_FORMAT_IDS!"=="" (
+	echo   Detected Premium Format IDs: !PREMIUM_FORMAT_IDS! >> "!LOG_FILE!"
+)
+if not "!AV1_FORMAT_IDS!"=="" (
+	echo   Detected AV1 High-Res Format IDs: !AV1_FORMAT_IDS! >> "!LOG_FILE!"
+)
+
+rem Set codec type based on detection priority
+rem Priority: Premium ^> AV1 High-Res ^> VP9 ^> H264
+set "CODEC_TYPE=H264"
 
 if "!PREMIUM_DETECTED!"=="1" (
 	set "CODEC_TYPE=PREMIUM"
-	echo   Detected: Premium Bitrate Format
-	echo   Detected: Premium Bitrate Format >> "!LOG_FILE!"
-) else (
-	rem Check for AV1 1080p format IDs (399=30fps, 699=60fps HFR)
-	rem Per youtube-format-ids.md: AV1 formats worth re-encoding are 399 and 699
-	set "AV1_1080P_FOUND=0"
-	for %%F in (399 699) do (
-		findstr /r "^%%F[ 	]" "!TEMP_FORMAT_FILE!" >nul 2>&1
-		if !errorlevel! equ 0 (
-			set "AV1_1080P_FOUND=1"
-			echo   Detected: AV1 1080p Format ID %%F >> "!LOG_FILE!"
-		)
-	)
-	if "!AV1_1080P_FOUND!"=="1" (
-		set "CODEC_TYPE=AV1"
-		echo   Detected: AV1 1080p Codec
-		echo   Detected: AV1 1080p Codec >> "!LOG_FILE!"
-	) else (
-		rem Check for VP9 codec (248=1080p 30fps, 303=1080p 60fps, 247=720p 30fps, 302=720p 60fps)
-		rem Per requirement: VP9 videos should NOT be re-encoded, even at 1080p
-		set "VP9_FOUND=0"
-		for %%F in (248 303 247 302) do (
-			findstr /r "^%%F[ 	]" "!TEMP_FORMAT_FILE!" >nul 2>&1
-			if !errorlevel! equ 0 (
-				set "VP9_FOUND=1"
-				echo   Detected: VP9 Format ID %%F >> "!LOG_FILE!"
-			)
-		)
-		rem Also check for vp09 codec string as fallback
-		if "!VP9_FOUND!"=="0" (
-			findstr /i "vp09 vp9" "!TEMP_FORMAT_FILE!" | findstr /v "242 243 244 278 394 395 396 397" >nul 2>&1
-			if !errorlevel! equ 0 (
-				set "VP9_FOUND=1"
-				echo   Detected: VP9 Codec via codec string >> "!LOG_FILE!"
-			)
-		)
-		if "!VP9_FOUND!"=="1" (
-			set "CODEC_TYPE=VP9"
-			echo   Detected: VP9 Codec - Skipping re-encode
-			echo   Detected: VP9 Codec - Skipping re-encode >> "!LOG_FILE!"
-		) else (
-			rem Check for H.264 codec (avc1)
-			findstr /i "avc1" "!TEMP_FORMAT_FILE!" >nul 2>&1
-			if !errorlevel! equ 0 (
-				set "CODEC_TYPE=H264"
-				echo   Detected: H.264 Codec - Skipping re-encode
-				echo   Detected: H.264 Codec - Skipping re-encode >> "!LOG_FILE!"
-			)
-		)
-	)
+	echo   Detected: Premium Bitrate Format - Re-encoding to H.265
+	echo   Detected: Premium Bitrate Format - Re-encoding to H.265 >> "!LOG_FILE!"
+) else if "!AV1_HIGHRES_DETECTED!"=="1" (
+	set "CODEC_TYPE=AV1"
+	echo   Detected: AV1 High-Res Format - Re-encoding to H.265
+	echo   Detected: AV1 High-Res Format - Re-encoding to H.265 >> "!LOG_FILE!"
+) else if "!VP9_DETECTED!"=="1" (
+	set "CODEC_TYPE=VP9"
+	echo   Detected: VP9 Codec - Skipping re-encode ^(VP9 policy^)
+	echo   Detected: VP9 Codec - Skipping re-encode ^(VP9 policy^) >> "!LOG_FILE!"
+) else if "!H264_DETECTED!"=="1" (
+	set "CODEC_TYPE=H264"
+	echo   Detected: H.264 Codec - Skipping re-encode ^(AVC policy^)
+	echo   Detected: H.264 Codec - Skipping re-encode ^(AVC policy^) >> "!LOG_FILE!"
 )
+rem ============================================================
+rem STEP 4: Download/encode based on codec type
+rem ============================================================
 if "!CODEC_TYPE!"=="H264" (
 	echo   Downloading H.264 only...
 	echo   Action: Downloading H.264 only >> "!LOG_FILE!"
 	yt-dlp -f bestvideo+bestaudio --merge-output-format mp4 --cookies-from-browser !BROWSER_CHOICE! --progress -o "!DOWNLOAD_DIR!\%%(title)s H264.%%(ext)s" "!VIDEO_URL!" 2>>"!LOG_FILE!"
 	if !errorlevel! equ 0 (
 		echo   Status: SUCCESS >> "!LOG_FILE!"
-		if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 		endlocal
 		set /a SUCCESS+=1
 		set /a H264_SKIPPED+=1
 		exit /b
 	) else (
 		echo   Status: FAILED >> "!LOG_FILE!"
-		if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 		endlocal
 		set /a FAILED+=1
 		exit /b
@@ -449,14 +456,12 @@ if "!CODEC_TYPE!"=="PREMIUM" (
 	)
 	if !errorlevel! equ 0 (
 		echo   Status: SUCCESS >> "!LOG_FILE!"
-		if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 		endlocal
 		set /a SUCCESS+=1
 		set /a PREMIUM_ENCODED+=1
 		exit /b
 	) else (
 		echo   Status: FAILED >> "!LOG_FILE!"
-		if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 		endlocal
 		set /a FAILED+=1
 		exit /b
@@ -476,14 +481,12 @@ if "!CODEC_TYPE!"=="AV1" (
 	)
 	if !errorlevel! equ 0 (
 		echo   Status: SUCCESS >> "!LOG_FILE!"
-		if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 		endlocal
 		set /a SUCCESS+=1
 		set /a AV1_ENCODED+=1
 		exit /b
 	) else (
 		echo   Status: FAILED >> "!LOG_FILE!"
-		if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 		endlocal
 		set /a FAILED+=1
 		exit /b
@@ -496,21 +499,17 @@ if "!CODEC_TYPE!"=="VP9" (
 	yt-dlp -f bestvideo+bestaudio --merge-output-format mp4 --cookies-from-browser !BROWSER_CHOICE! --progress -o "!DOWNLOAD_DIR!\%%(title)s VP9.%%(ext)s" "!VIDEO_URL!" 2>>"!LOG_FILE!"
 	if !errorlevel! equ 0 (
 		echo   Status: SUCCESS >> "!LOG_FILE!"
-		if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 		endlocal
 		set /a SUCCESS+=1
 		set /a VP9_SKIPPED+=1
 		exit /b
 	) else (
 		echo   Status: FAILED >> "!LOG_FILE!"
-		if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 		endlocal
 		set /a FAILED+=1
 		exit /b
 	)
 )
-if exist "!TEMP_FORMAT_FILE!" del "!TEMP_FORMAT_FILE!"
-if exist "!TEMP_FORMAT_FILE!.debug" del "!TEMP_FORMAT_FILE!.debug"
 endlocal
 exit /b
 
