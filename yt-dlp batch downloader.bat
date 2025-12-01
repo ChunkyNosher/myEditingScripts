@@ -395,7 +395,7 @@ if "!PREMIUM_DETECTED!"=="1" (
 		)
 		rem Also check for vp09 codec string as fallback
 		if "!VP9_FOUND!"=="0" (
-			findstr /i "vp09 vp9" "!TEMP_FORMAT_FILE!" | findstr /v "243 278 242" >nul 2>&1
+			findstr /i "vp09 vp9" "!TEMP_FORMAT_FILE!" | findstr /v "242 243 244 278 394 395 396 397" >nul 2>&1
 			if !errorlevel! equ 0 (
 				set "VP9_FOUND=1"
 				echo   Detected: VP9 Codec via codec string >> "!LOG_FILE!"
