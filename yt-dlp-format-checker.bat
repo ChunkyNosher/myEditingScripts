@@ -9,13 +9,15 @@ set "DEPS_FOLDER=yt-dlp batch downloader dependencies"
 rem Use dependencies folder for files
 set "LIST_FILE=%DEPS_FOLDER%\yt_download_list.txt"
 set "BROWSER_FILE=%DEPS_FOLDER%\browser_choice.txt"
-set "TEMP_FULL_FORMAT=%DEPS_FOLDER%\temp_full_format.txt"
+set "JSON_FILE=%DEPS_FOLDER%\temp_format_check.json"
+set "PS_SCRIPT=%DEPS_FOLDER%\format_detector.ps1"
 
 rem Fallback to old location if dependencies folder doesn't exist
 if not exist "%DEPS_FOLDER%" (
     set "LIST_FILE=yt_download_list.txt"
     set "BROWSER_FILE=browser_choice.txt"
-    set "TEMP_FULL_FORMAT=temp_full_format.txt"
+    set "JSON_FILE=temp_format_check.json"
+    set "PS_SCRIPT=format_detector.ps1"
 )
 
 :MAIN_MENU
@@ -57,10 +59,16 @@ if not exist "%LIST_FILE%" (
     pause
     goto MAIN_MENU
 )
+if not exist "%PS_SCRIPT%" (
+    echo format_detector.ps1 not found!
+    echo Please ensure the PowerShell script exists in the dependencies folder.
+    pause
+    goto MAIN_MENU
+)
 set /p BROWSER_CHOICE=<"%BROWSER_FILE%"
 echo ==============================
 echo Checking Formats for All Videos
-echo With Codec Detection
+echo With JSON-Based Codec Detection
 echo ==============================
 echo.
 echo Extracting cookies from !BROWSER_CHOICE!...
@@ -78,75 +86,61 @@ for /f "usebackq delims=" %%U in ("%LIST_FILE%") do (
     echo.
     echo URL: %%U
     echo.
-    echo === AVAILABLE FORMATS ===
-    yt-dlp --list-formats "%%U" --cookies-from-browser !BROWSER_CHOICE! -v 2>"!TEMP_FULL_FORMAT!.debug" > "!TEMP_FULL_FORMAT!"
-    type "!TEMP_FULL_FORMAT!"
+    
+    rem Get JSON info for reliable detection
+    echo Fetching video information...
+    yt-dlp -J "%%U" --cookies-from-browser !BROWSER_CHOICE! --quiet > "!JSON_FILE!" 2>nul
+    
+    if not exist "!JSON_FILE!" (
+        echo [ERROR] Failed to retrieve video information
+        echo.
+        pause >nul
+        goto :NEXT_VIDEO_ALL
+    )
+    
     echo.
-    echo === CODEC DETECTION ===
+    echo === CODEC DETECTION ^(JSON-Based^) ===
     echo.
-    set "FINAL_CODEC=UNKNOWN"
+    
+    rem Initialize detection variables
     set "PREMIUM_DETECTED=0"
+    set "AV1_HIGHRES_DETECTED=0"
+    set "VP9_DETECTED=0"
+    set "H264_DETECTED=0"
+    set "PREMIUM_FORMAT_IDS="
+    set "AV1_FORMAT_IDS="
     
-    rem Check for YouTube Premium subscription in verbose output
-    findstr /i /c:"Detected YouTube Premium" "!TEMP_FULL_FORMAT!.debug" >nul 2>&1
-    if !errorlevel! equ 0 (
-        echo [INFO] YouTube Premium subscription detected
+    rem Execute PowerShell and capture output
+    for /f "usebackq tokens=1,2 delims==" %%A in (`powershell -ExecutionPolicy Bypass -File "!PS_SCRIPT!" "!JSON_FILE!" 2^>nul`) do (
+        set "%%A=%%B"
     )
     
-    rem Check for specific premium format IDs at line beginning only
-    rem Per youtube-format-ids.md: Format 356, 616, 721, 774 are premium-exclusive
-    for %%F in (356 616 721 774) do (
-        findstr /r "^%%F[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
-        if !errorlevel! equ 0 (
-            set "PREMIUM_DETECTED=1"
-            echo [INFO] Premium Format ID %%F detected
-        )
-    )
+    rem Clean up JSON file
+    if exist "!JSON_FILE!" del "!JSON_FILE!"
     
+    rem Display detection results
+    if not "!PREMIUM_FORMAT_IDS!"=="" (
+        echo [INFO] Premium Format IDs: !PREMIUM_FORMAT_IDS!
+    )
+    if not "!AV1_FORMAT_IDS!"=="" (
+        echo [INFO] AV1 High-Res Format IDs: !AV1_FORMAT_IDS!
+    )
+    if "!VP9_DETECTED!"=="1" echo [INFO] VP9 codec detected
+    if "!H264_DETECTED!"=="1" echo [INFO] H.264 codec detected
+    
+    rem Determine final codec based on priority
+    set "FINAL_CODEC=UNKNOWN"
     if "!PREMIUM_DETECTED!"=="1" (
         set "FINAL_CODEC=PREMIUM"
-    ) else (
-        rem Check for AV1 1080p format IDs (399=30fps, 699=60fps HFR)
-        set "AV1_FOUND=0"
-        for %%F in (399 699) do (
-            findstr /r "^%%F[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
-            if !errorlevel! equ 0 (
-                set "AV1_FOUND=1"
-                echo [INFO] AV1 1080p Format ID %%F detected
-            )
-        )
-        if "!AV1_FOUND!"=="1" (
-            set "FINAL_CODEC=AV1"
-        ) else (
-            rem Check for VP9 format IDs (248, 303, 247, 302)
-            set "VP9_FOUND=0"
-            for %%F in (248 303 247 302) do (
-                findstr /r "^%%F[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
-                if !errorlevel! equ 0 (
-                    set "VP9_FOUND=1"
-                    echo [INFO] VP9 Format ID %%F detected
-                )
-            )
-            rem Also check for vp09 codec string as fallback
-            if "!VP9_FOUND!"=="0" (
-                findstr /i "vp09 vp9" "!TEMP_FULL_FORMAT!" | findstr /v "242 243 244 278 394 395 396 397" >nul 2>&1
-                if !errorlevel! equ 0 (
-                    set "VP9_FOUND=1"
-                    echo [INFO] VP9 codec detected via codec string
-                )
-            )
-            if "!VP9_FOUND!"=="1" (
-                set "FINAL_CODEC=VP9"
-            ) else (
-                rem Check for H.264 codec (avc1)
-                findstr /i "avc1" "!TEMP_FULL_FORMAT!" >nul 2>&1
-                if !errorlevel! equ 0 (
-                    set "FINAL_CODEC=H264"
-                )
-            )
-        )
+    ) else if "!AV1_HIGHRES_DETECTED!"=="1" (
+        set "FINAL_CODEC=AV1"
+    ) else if "!VP9_DETECTED!"=="1" (
+        set "FINAL_CODEC=VP9"
+    ) else if "!H264_DETECTED!"=="1" (
+        set "FINAL_CODEC=H264"
     )
     
+    echo.
     echo [CODEC DETECTION RESULT]
     echo.
     echo Detected Codec: !FINAL_CODEC!
@@ -154,10 +148,10 @@ for /f "usebackq delims=" %%U in ("%LIST_FILE%") do (
     
     if "!FINAL_CODEC!"=="PREMIUM" (
         echo Action in Main Program: Download + Re-encode to H.265
-        echo Quality: HIGHEST AVAILABLE - Premium Format Detected
+        echo Quality: HIGHEST AVAILABLE - Premium Format ^(above 720p^) Detected
     ) else if "!FINAL_CODEC!"=="AV1" (
         echo Action in Main Program: Download + Re-encode to H.265
-        echo Quality: EXCELLENT - AV1 1080p Codec Detected
+        echo Quality: EXCELLENT - AV1 High-Resolution ^(above 720p^) Detected
     ) else if "!FINAL_CODEC!"=="VP9" (
         echo Action in Main Program: Download WITHOUT Re-encoding
         echo Quality: EXCELLENT - VP9 Codec ^(skip re-encode policy^)
@@ -169,13 +163,12 @@ for /f "usebackq delims=" %%U in ("%LIST_FILE%") do (
         echo Quality: VARIABLE
     )
     
-    if exist "!TEMP_FULL_FORMAT!" del "!TEMP_FULL_FORMAT!"
-    if exist "!TEMP_FULL_FORMAT!.debug" del "!TEMP_FULL_FORMAT!.debug"
     echo.
     echo ==============================
     echo Press any key to continue to next video...
     echo ==============================
     pause >nul
+    :NEXT_VIDEO_ALL
 )
 echo.
 cls
@@ -198,6 +191,12 @@ if not exist "%BROWSER_FILE%" (
     pause
     goto MAIN_MENU
 )
+if not exist "%PS_SCRIPT%" (
+    echo format_detector.ps1 not found!
+    echo Please ensure the PowerShell script exists in the dependencies folder.
+    pause
+    goto MAIN_MENU
+)
 set /p BROWSER_CHOICE=<"%BROWSER_FILE%"
 echo ==============================
 echo Check Single Video Format
@@ -213,75 +212,62 @@ echo.
 echo Extracting cookies from !BROWSER_CHOICE!...
 echo Browser must be CLOSED for cookies to work.
 echo.
-echo === AVAILABLE FORMATS ===
-yt-dlp --list-formats "!SINGLE_URL!" --cookies-from-browser !BROWSER_CHOICE! -v 2>"!TEMP_FULL_FORMAT!.debug" > "!TEMP_FULL_FORMAT!"
-type "!TEMP_FULL_FORMAT!"
+
+rem Get JSON info for reliable detection
+echo Fetching video information...
+yt-dlp -J "!SINGLE_URL!" --cookies-from-browser !BROWSER_CHOICE! --quiet > "!JSON_FILE!" 2>nul
+
+if not exist "!JSON_FILE!" (
+    echo.
+    echo [ERROR] Failed to retrieve video information
+    echo.
+    pause
+    goto MAIN_MENU
+)
+
 echo.
-echo === CODEC DETECTION ===
+echo === CODEC DETECTION ^(JSON-Based^) ===
 echo.
-set "FINAL_CODEC=UNKNOWN"
+
+rem Initialize detection variables
 set "PREMIUM_DETECTED=0"
+set "AV1_HIGHRES_DETECTED=0"
+set "VP9_DETECTED=0"
+set "H264_DETECTED=0"
+set "PREMIUM_FORMAT_IDS="
+set "AV1_FORMAT_IDS="
 
-rem Check for YouTube Premium subscription in verbose output
-findstr /i /c:"Detected YouTube Premium" "!TEMP_FULL_FORMAT!.debug" >nul 2>&1
-if !errorlevel! equ 0 (
-    echo [INFO] YouTube Premium subscription detected
+rem Execute PowerShell and capture output
+for /f "usebackq tokens=1,2 delims==" %%A in (`powershell -ExecutionPolicy Bypass -File "!PS_SCRIPT!" "!JSON_FILE!" 2^>nul`) do (
+    set "%%A=%%B"
 )
 
-rem Check for specific premium format IDs at line beginning only
-rem Per youtube-format-ids.md: Format 356, 616, 721, 774 are premium-exclusive
-for %%F in (356 616 721 774) do (
-    findstr /r "^%%F[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
-    if !errorlevel! equ 0 (
-        set "PREMIUM_DETECTED=1"
-        echo [INFO] Premium Format ID %%F detected
-    )
-)
+rem Clean up JSON file
+if exist "!JSON_FILE!" del "!JSON_FILE!"
 
+rem Display detection results
+if not "!PREMIUM_FORMAT_IDS!"=="" (
+    echo [INFO] Premium Format IDs: !PREMIUM_FORMAT_IDS!
+)
+if not "!AV1_FORMAT_IDS!"=="" (
+    echo [INFO] AV1 High-Res Format IDs: !AV1_FORMAT_IDS!
+)
+if "!VP9_DETECTED!"=="1" echo [INFO] VP9 codec detected
+if "!H264_DETECTED!"=="1" echo [INFO] H.264 codec detected
+
+rem Determine final codec based on priority
+set "FINAL_CODEC=UNKNOWN"
 if "!PREMIUM_DETECTED!"=="1" (
     set "FINAL_CODEC=PREMIUM"
-) else (
-    rem Check for AV1 1080p format IDs (399=30fps, 699=60fps HFR)
-    set "AV1_FOUND=0"
-    for %%F in (399 699) do (
-        findstr /r "^%%F[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
-        if !errorlevel! equ 0 (
-            set "AV1_FOUND=1"
-            echo [INFO] AV1 1080p Format ID %%F detected
-        )
-    )
-    if "!AV1_FOUND!"=="1" (
-        set "FINAL_CODEC=AV1"
-    ) else (
-        rem Check for VP9 format IDs (248, 303, 247, 302)
-        set "VP9_FOUND=0"
-        for %%F in (248 303 247 302) do (
-            findstr /r "^%%F[ 	]" "!TEMP_FULL_FORMAT!" >nul 2>&1
-            if !errorlevel! equ 0 (
-                set "VP9_FOUND=1"
-                echo [INFO] VP9 Format ID %%F detected
-            )
-        )
-        rem Also check for vp09 codec string as fallback
-        if "!VP9_FOUND!"=="0" (
-            findstr /i "vp09 vp9" "!TEMP_FULL_FORMAT!" | findstr /v "242 243 244 278 394 395 396 397" >nul 2>&1
-            if !errorlevel! equ 0 (
-                set "VP9_FOUND=1"
-                echo [INFO] VP9 codec detected via codec string
-            )
-        )
-        if "!VP9_FOUND!"=="1" (
-            set "FINAL_CODEC=VP9"
-        ) else (
-            rem Check for H.264 codec (avc1)
-            findstr /i "avc1" "!TEMP_FULL_FORMAT!" >nul 2>&1
-            if !errorlevel! equ 0 (
-                set "FINAL_CODEC=H264"
-            )
-        )
-    )
+) else if "!AV1_HIGHRES_DETECTED!"=="1" (
+    set "FINAL_CODEC=AV1"
+) else if "!VP9_DETECTED!"=="1" (
+    set "FINAL_CODEC=VP9"
+) else if "!H264_DETECTED!"=="1" (
+    set "FINAL_CODEC=H264"
 )
 
+echo.
 echo [CODEC DETECTION RESULT]
 echo.
 echo Detected Codec: !FINAL_CODEC!
@@ -289,10 +275,10 @@ echo.
 
 if "!FINAL_CODEC!"=="PREMIUM" (
     echo Action in Main Program: Download + Re-encode to H.265
-    echo Quality: HIGHEST AVAILABLE - Premium Format Detected
+    echo Quality: HIGHEST AVAILABLE - Premium Format ^(above 720p^) Detected
 ) else if "!FINAL_CODEC!"=="AV1" (
     echo Action in Main Program: Download + Re-encode to H.265
-    echo Quality: EXCELLENT - AV1 1080p Codec Detected
+    echo Quality: EXCELLENT - AV1 High-Resolution ^(above 720p^) Detected
 ) else if "!FINAL_CODEC!"=="VP9" (
     echo Action in Main Program: Download WITHOUT Re-encoding
     echo Quality: EXCELLENT - VP9 Codec ^(skip re-encode policy^)
@@ -304,8 +290,6 @@ if "!FINAL_CODEC!"=="PREMIUM" (
     echo Quality: VARIABLE
 )
 
-if exist "!TEMP_FULL_FORMAT!" del "!TEMP_FULL_FORMAT!"
-if exist "!TEMP_FULL_FORMAT!.debug" del "!TEMP_FULL_FORMAT!.debug"
 echo.
 pause
 goto MAIN_MENU
