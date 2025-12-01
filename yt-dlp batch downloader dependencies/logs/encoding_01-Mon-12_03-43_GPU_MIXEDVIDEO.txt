@@ -1,0 +1,75 @@
+================================ 
+Encoding Session Log 
+Date: 01-Mon-12 Time: 03-43 
+Mode: GPU Profile: MIXEDVIDEO 
+Browser: firefox 
+Download Directory: D:\Chunky's Master Folder External Drive\Chunky Premiere Pro Folder\Video Specific Assets and Footage\LIMC video 
+================================ 
+ 
+ 
+Processing: https://www.youtube.com/watch?v=Ci_zad39Uhw 
+Timestamp: Mon 12/01/2025 15:43:51.69 
+  Detected: YouTube Premium subscription active 
+  Detected: Premium Bitrate Format 
+  Action: Downloading Premium and re-encoding to H.265 
+WARNING: Post-Processor arguments given without specifying name. The arguments will be given to all post-processors
+  Status: SUCCESS 
+ 
+Processing: https://www.youtube.com/watch?v=ldBCQNOMQaE 
+Timestamp: Mon 12/01/2025 15:44:53.85 
+  Detected: YouTube Premium subscription active 
+  Detected: Premium Bitrate Format 
+  Action: Downloading Premium and re-encoding to H.265 
+WARNING: Post-Processor arguments given without specifying name. The arguments will be given to all post-processors
+  Status: SUCCESS 
+ 
+Processing: https://www.youtube.com/watch?v=czcQTc2U6aU 
+Timestamp: Mon 12/01/2025 15:48:44.20 
+  Detected: YouTube Premium subscription active 
+  Detected: Premium Bitrate Format 
+  Action: Downloading Premium and re-encoding to H.265 
+WARNING: Post-Processor arguments given without specifying name. The arguments will be given to all post-processors
+  Status: SUCCESS 
+ 
+Processing: https://www.youtube.com/watch?v=WmMkCJeP3no 
+Timestamp: Mon 12/01/2025 15:52:23.24 
+  Detected: YouTube Premium subscription active 
+  Detected: Premium Bitrate Format 
+  Action: Downloading Premium and re-encoding to H.265 
+WARNING: Post-Processor arguments given without specifying name. The arguments will be given to all post-processors
+  Status: SUCCESS 
+ 
+Processing: https://www.youtube.com/watch?v=tT6eBFIslMw 
+Timestamp: Mon 12/01/2025 15:53:13.81 
+  Detected: YouTube Premium subscription active 
+  Detected: Premium Bitrate Format 
+  Action: Downloading Premium and re-encoding to H.265 
+WARNING: Post-Processor arguments given without specifying name. The arguments will be given to all post-processors
+  Status: SUCCESS 
+ 
+Processing: https://www.youtube.com/watch?v=0Lted68mudM 
+Timestamp: Mon 12/01/2025 16:13:18.53 
+  Detected: YouTube Premium subscription active 
+  Detected: Premium Bitrate Format 
+  Action: Downloading Premium and re-encoding to H.265 
+WARNING: Post-Processor arguments given without specifying name. The arguments will be given to all post-processors
+  Status: SUCCESS 
+ 
+Processing: https://www.youtube.com/watch?v=XqU7Fsrba0 
+Timestamp: Mon 12/01/2025 16:22:11.12 
+  Detected: Premium Bitrate Format 
+  Action: Downloading Premium and re-encoding to H.265 
+WARNING: Post-Processor arguments given without specifying name. The arguments will be given to all post-processors
+ERROR: [youtube:truncated_id] XqU7Fsrba0: Incomplete YouTube ID XqU7Fsrba0. URL https://www.youtube.com/watch?v=XqU7Fsrba0 looks truncated.
+  Status: FAILED 
+ 
+================================ 
+Download Summary 
+================================ 
+Total Processed: 6 
+Total Failed: 1 
+Premium Re-encoded: 6 
+AV1/VP9 Re-encoded: 0 
+H.264 Skipped: 0 
+Location: D:\Chunky's Master Folder External Drive\Chunky Premiere Pro Folder\Video Specific Assets and Footage\LIMC video 
+================================ 
