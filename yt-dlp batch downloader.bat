@@ -307,10 +307,8 @@ rem Get format list with verbose output to capture premium detection
 yt-dlp --list-formats "!VIDEO_URL!" --cookies-from-browser !BROWSER_CHOICE! -v 2>"!TEMP_FORMAT_FILE!.debug" > "!TEMP_FORMAT_FILE!"
 
 rem Check for YouTube Premium subscription detection in verbose output
-set "HAS_PREMIUM_SUB=0"
 findstr /i /c:"Detected YouTube Premium" "!TEMP_FORMAT_FILE!.debug" >nul 2>&1
 if !errorlevel! equ 0 (
-	set "HAS_PREMIUM_SUB=1"
 	echo   Detected: YouTube Premium subscription active
 	echo   Detected: YouTube Premium subscription active >> "!LOG_FILE!"
 )
