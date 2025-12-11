@@ -153,12 +153,12 @@ def copy_gradio_file_to_cache(file_path, max_retries=6):  # ✅ 6 retries
         if cached_path.exists() and cached_path.stat().st_size > 0:
             return str(cached_path)
         
-        # Exponential backoff: 0.5s, 1.0s, 1.5s, 2.0s, 2.5s, 3.0s = 10.5s total ✅
+        # Linear backoff: 0.5s, 1.0s, 1.5s, 2.0s, 2.5s, 3.0s = 10.5s total ✅
 ```
 
 **Impact:**  
 - ✅ Total wait time: 10.5 seconds (vs 1.2 seconds)
-- ✅ Exponential backoff accommodates real Windows lock times
+- ✅ Linear backoff accommodates real Windows lock times
 - ✅ File validation prevents returning empty/invalid files
 - ✅ Significantly reduces file lock failures on Windows
 
@@ -206,7 +206,7 @@ for attempt in range(max_duration_retries):
         break  # ✅ Success - exit retry loop
     except (OSError, PermissionError) as e:
         if attempt < max_duration_retries - 1:
-            # ✅ Exponential backoff: 0.5s, 1.0s, 1.5s, 2.0s
+            # ✅ Linear backoff: 0.5s, 1.0s, 1.5s, 2.0s
             delay = duration_base_delay * (attempt + 1)
             print(f"File lock on duration check, waiting {delay:.1f}s...")
             time.sleep(delay)
