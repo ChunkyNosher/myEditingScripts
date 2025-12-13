@@ -966,9 +966,8 @@ def transcribe_audio(audio_files, model_choice, save_to_file, include_timestamps
                 "is_video": is_video
             })
         
-        # Use NeMo's default batch_size for file batching
         # NeMo handles optimal batching automatically based on VRAM
-        batch_size = 4  # NeMo default for file-count batching
+        # The simple inference API does not expose batch_size parameter
         
         # Prepare status update for video processing
         video_status = ""
@@ -995,15 +994,13 @@ def transcribe_audio(audio_files, model_choice, save_to_file, include_timestamps
                     # Use mixed precision (FP16) for faster inference on CUDA
                     with torch.autocast(device_type='cuda', dtype=torch.float16):
                         result = model.transcribe(
-                            processed_files, 
-                            batch_size=batch_size,
+                            processed_files,
                             timestamps=include_timestamps
                         )
                 else:
                     # CPU fallback - no autocast
                     result = model.transcribe(
-                        processed_files, 
-                        batch_size=batch_size,
+                        processed_files,
                         timestamps=include_timestamps
                     )
                 
@@ -1113,7 +1110,6 @@ def transcribe_audio(audio_files, model_choice, save_to_file, include_timestamps
 - **Total Audio Duration**: {total_mins}m {total_secs}s
 - **Processing Time**: {total_time:.2f} seconds
 - **Inference Time**: {inference_time:.2f} seconds
-- **Batch Size Used**: {batch_size}
 - **Real-Time Factor**: {rtfx:.1f}× (processed {rtfx:.1f}× faster than real-time)
 - **VRAM Used**: {vram_used:.2f} GB
 - **Total Words**: {total_words}
@@ -1169,7 +1165,6 @@ def transcribe_audio(audio_files, model_choice, save_to_file, include_timestamps
 - **Processing Time**: {total_time:.2f} seconds
 - **Inference Time**: {inference_time:.2f} seconds
 - **Model Load Time**: {load_time:.2f} seconds
-- **Batch Size Used**: {batch_size}
 - **Real-Time Factor**: {rtfx:.1f}× (processed {rtfx:.1f}× faster than real-time)
 - **VRAM Used**: {vram_used:.2f} GB
 - **Transcription Length**: {len(transcription)} characters ({len(transcription.split())} words)
