@@ -53,21 +53,27 @@ CACHE_DIR = _cache_dir
 # ============================================================================
 # Validate Windows Standard Temp Directory Configuration
 # ============================================================================
-# Verify that tempfile.gettempdir() returns Windows standard temp location
-# (C:\Users\<username>\AppData\Local\Temp\nemo_transcribe_cache).
+# Verify that _temp_dir is within the system temp directory tree.
 # This ensures NeMo's manifest.json is created with proper Windows file locking.
 # ============================================================================
 
-# Validate that our tempfile configuration took effect
-_actual_temp = tempfile.gettempdir()
-_windows_temp_base = Path(tempfile.gettempdir()).parent
-print(f"✓ Windows standard temp directory: {_windows_temp_base}")
+# Validate that our tempfile configuration is using system temp directory
+_system_temp = Path(tempfile.gettempdir())
+print(f"✓ System temp directory: {_system_temp}")
 print(f"✓ NeMo temp directory: {_temp_dir}")
-if not str(_temp_dir).startswith(str(_windows_temp_base)):
-    print(f"⚠️  WARNING: NeMo temp is not in Windows standard location!")
+
+# Verify _temp_dir is a subdirectory of the system temp
+try:
+    # Check if _temp_dir is relative to system temp
+    _temp_dir.relative_to(_system_temp)
+    print(f"✓ Temp directory configuration verified - using Windows standard location")
+except ValueError:
+    # _temp_dir is not under system temp
+    print(f"⚠️  WARNING: NeMo temp is not in system temp location!")
+    print(f"   Expected: subdirectory of {_system_temp}")
+    print(f"   Actual: {_temp_dir}")
     print(f"   This may cause file locking issues!")
-else:
-    print(f"✓ Temp directory configuration verified")
+
 
 # ============================================================================
 # NOTE: NeMo C++ Backend Limitation
@@ -93,7 +99,17 @@ import time
 import gc
 import shutil
 import hashlib
-import soundfile  # For reliable file handle management in duration checking
+
+# Try to import soundfile for better file handle management
+# Falls back to librosa-only if not available
+try:
+    import soundfile
+    SOUNDFILE_AVAILABLE = True
+except ImportError:
+    SOUNDFILE_AVAILABLE = False
+    print("⚠️  WARNING: soundfile not installed. Using librosa fallback.")
+    print("   Install with: pip install soundfile")
+    print("   For better file handle management and reduced WinError 32 risk.")
 
 # Global model cache to avoid reloading
 models_cache = {}
@@ -1017,7 +1033,7 @@ def transcribe_audio(audio_files, model_choice, save_to_file, include_timestamps
                     if is_video:
                         # Video files must use librosa (soundfile can't read video)
                         duration = librosa.get_duration(path=cached_file_path)
-                    else:
+                    elif SOUNDFILE_AVAILABLE:
                         # For audio files, try soundfile first (better file handle management)
                         try:
                             with soundfile.SoundFile(cached_file_path) as f:
@@ -1026,14 +1042,13 @@ def transcribe_audio(audio_files, model_choice, save_to_file, include_timestamps
                             # Fallback to librosa if soundfile fails
                             print(f"   ⚠️  soundfile failed ({soundfile_error}), falling back to librosa")
                             duration = librosa.get_duration(path=cached_file_path)
+                    else:
+                        # soundfile not available, use librosa directly
+                        duration = librosa.get_duration(path=cached_file_path)
                     
                     # CRITICAL: Force garbage collection to release all file handles
                     # This prevents WinError 32 when NeMo tries to access the file immediately after
                     gc.collect()
-                    
-                    # Optional: Also clear GPU cache
-                    if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
                     
                     break  # Success - exit retry loop
                     
