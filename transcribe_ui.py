@@ -1040,7 +1040,7 @@ def transcribe_audio(audio_files, model_choice, save_to_file, include_timestamps
                                 duration = len(f) / f.samplerate  # duration in seconds
                         except Exception as soundfile_error:
                             # Fallback to librosa if soundfile fails
-                            print(f"   ⚠️  soundfile failed ({soundfile_error}), falling back to librosa")
+                            print(f"   ⚠️  soundfile failed ({type(soundfile_error).__name__}: {soundfile_error}), falling back to librosa")
                             duration = librosa.get_duration(path=cached_file_path)
                     else:
                         # soundfile not available, use librosa directly
@@ -1063,14 +1063,15 @@ def transcribe_audio(audio_files, model_choice, save_to_file, include_timestamps
                         time.sleep(delay)
                         continue
                     else:
-                        # Final retry failed
+                        # Final retry failed - handle based on file type
                         error_msg = str(e)
                         if is_video:
                             return f"❌ Video file '{os.path.basename(cached_file_path)}' appears to have no audio track or cannot be processed.\n\nError: {error_msg}", "", None
                         else:
                             raise
                 except Exception as e:
-                    # Handle other exceptions (e.g., corrupted file)
+                    # Handle other unexpected exceptions (e.g., corrupted file, unsupported format)
+                    # For video files, provide user-friendly error; for audio files, re-raise
                     error_msg = str(e)
                     if is_video:
                         return f"❌ Video file '{os.path.basename(cached_file_path)}' appears to have no audio track or cannot be processed.\n\nError: {error_msg}", "", None
