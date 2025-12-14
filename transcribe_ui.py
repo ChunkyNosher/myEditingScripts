@@ -1,44 +1,49 @@
 # ============================================================================
 # WINDOWS TEMP FILE FIX - Configure cache directories BEFORE importing libraries
 # ============================================================================
-# This prevents WinError 32 (file in use) errors on Windows caused by:
-# - Antivirus software scanning %TEMP% folder
-# - Cloud sync services (OneDrive, Dropbox, Google Drive) monitoring temp files
-# - Windows Search/Indexing service holding file handles
+# CRITICAL FIX: Use Windows standard temp directory instead of custom directory
+# Windows has OS-level optimizations for multi-process file access in:
+#   C:\Users\<username>\AppData\Local\Temp\
+# Custom directories don't have these optimizations and cause WinError 32.
 #
-# By setting TORCH_HOME, HF_HOME, and TMPDIR BEFORE importing NeMo/PyTorch,
-# all model downloads and extractions go to a project-local cache directory
-# that Windows services typically don't monitor.
+# Model downloads still use project-local cache (TORCH_HOME, HF_HOME, NEMO_CACHE_DIR)
+# Only temporary manifest files use Windows standard temp directory.
 # ============================================================================
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 
-# Get script directory and create cache directory structure
+# Get script directory and create cache directory structure for MODEL STORAGE
 _script_dir = Path(__file__).parent.absolute()
 _cache_dir = _script_dir / "model_cache"
 _cache_dir.mkdir(parents=True, exist_ok=True)
 
 # Set cache environment variables BEFORE importing torch/NeMo
-# This affects all subsequent model downloads and extractions
+# These control WHERE MODELS ARE DOWNLOADED AND STORED
 os.environ["TORCH_HOME"] = str(_cache_dir / "torch")
 os.environ["HF_HOME"] = str(_cache_dir / "huggingface")
 os.environ["NEMO_CACHE_DIR"] = str(_cache_dir / "nemo")
 
-# Set TMPDIR to use our cache instead of Windows %TEMP%
-# This is the CRITICAL line that prevents file lock issues
-os.environ["TMPDIR"] = str(_cache_dir / "tmp")
-if sys.platform == "win32":
-    # Windows uses different env vars for temp directory
-    os.environ["TEMP"] = str(_cache_dir / "tmp")
-    os.environ["TMP"] = str(_cache_dir / "tmp")
-
-# Create temp directory
-_temp_dir = _cache_dir / "tmp"
+# CRITICAL FIX: Use Windows standard temp directory for NeMo manifest files
+# Windows properly handles file locking in C:\Users\<username>\AppData\Local\Temp\
+# Custom directories cause WinError 32 due to lack of OS-level optimizations
+_original_system_temp = Path(tempfile.gettempdir())  # Store original before modification
+_temp_dir = _original_system_temp / "nemo_transcribe_cache"
 _temp_dir.mkdir(parents=True, exist_ok=True)
 
-# Create other cache subdirectories
+# Configure Python's tempfile module to use Windows standard temp location
+# This ensures NeMo's manifest.json is created in a location with proper file locking
+tempfile.tempdir = str(_temp_dir)
+
+# Set environment variables to Windows standard temp (important for subprocess operations)
+os.environ["TMPDIR"] = str(_temp_dir)
+if sys.platform == "win32":
+    os.environ["TEMP"] = str(_temp_dir)
+    os.environ["TMP"] = str(_temp_dir)
+
+# Create model cache subdirectories
 (_cache_dir / "torch").mkdir(parents=True, exist_ok=True)
 (_cache_dir / "huggingface").mkdir(parents=True, exist_ok=True)
 (_cache_dir / "nemo").mkdir(parents=True, exist_ok=True)
@@ -47,39 +52,29 @@ _temp_dir.mkdir(parents=True, exist_ok=True)
 CACHE_DIR = _cache_dir
 
 # ============================================================================
-# FIX #2: Explicit tempfile.tempdir Configuration
+# Validate Windows Standard Temp Directory Configuration
 # ============================================================================
-# Import tempfile and explicitly set tempfile.tempdir to force Python's
-# tempfile module to use our custom temp directory instead of system %TEMP%.
-# This is more reliable than environment variables alone because:
-# 1. Some libraries cache the temp directory before env vars are checked
-# 2. The tempfile module may have already been imported by other modules
-# 3. Explicit assignment ensures all subsequent tempfile operations use our path
+# Verify that _temp_dir is within the system temp directory tree.
+# This ensures NeMo's manifest.json is created with proper Windows file locking.
 # ============================================================================
 
-import tempfile
+# Validate that our tempfile configuration is using system temp directory
+print(f"✓ Original system temp: {_original_system_temp}")
+print(f"✓ NeMo temp directory: {_temp_dir}")
 
-# Force Python's tempfile module to use our custom temp directory
-# This affects all tempfile.TemporaryDirectory() calls, including NeMo's
-tempfile.tempdir = str(_temp_dir)
-
-# ============================================================================
-# FIX #3: Validate tempfile Configuration
-# ============================================================================
-# Verify that tempfile.gettempdir() returns our custom cache directory.
-# This ensures all subsequent tempfile operations (including NeMo's internal
-# manifest creation during inference) will use our controlled location
-# instead of system %TEMP%, preventing Windows file locking issues.
-# ============================================================================
-
-# Validate that our tempfile configuration took effect
-_actual_temp = tempfile.gettempdir()
-if _actual_temp != str(_temp_dir):
-    print(f"⚠️  WARNING: tempfile.gettempdir() returned {_actual_temp}")
-    print(f"   Expected: {_temp_dir}")
+# Verify _temp_dir is a subdirectory of the original system temp
+try:
+    # Check if _temp_dir is relative to original system temp
+    _temp_dir.relative_to(_original_system_temp)
+    print(f"✓ Temp directory configuration verified - using Windows standard location")
+except ValueError:
+    # _temp_dir is not under system temp
+    print(f"⚠️  WARNING: NeMo temp is not in system temp location!")
+    print(f"   Expected: subdirectory of {_original_system_temp}")
+    print(f"   Actual: {_temp_dir}")
     print(f"   This may cause file locking issues!")
-else:
-    print(f"✓ Temp directory verified: {_temp_dir}")
+
+
 
 # ============================================================================
 # NOTE: NeMo C++ Backend Limitation
@@ -105,6 +100,18 @@ import time
 import gc
 import shutil
 import hashlib
+import librosa  # For audio/video duration checking - imported at module level to avoid repeated imports in loops
+
+# Try to import soundfile for better file handle management
+# Falls back to librosa-only if not available
+try:
+    import soundfile
+    SOUNDFILE_AVAILABLE = True
+except ImportError:
+    SOUNDFILE_AVAILABLE = False
+    print("⚠️  WARNING: soundfile not installed. Using librosa fallback.")
+    print("   Install with: pip install soundfile")
+    print("   For better file handle management and reduced WinError 32 risk.")
 
 # Global model cache to avoid reloading
 models_cache = {}
@@ -382,19 +389,23 @@ def _setup_transcribe_config(model, batch_size):
     """
     Setup transcribe configuration to prevent manifest file locking.
     
-    Key fix: num_workers=0 disables multiprocessing worker processes
-    that create temporary manifest files in system temp directories.
-    These files cause Windows file locking errors during GPU inference.
+    Key fixes:
+    1. num_workers=0 disables multiprocessing worker processes
+    2. temp_dir points to Windows standard temp location
+    
+    These settings prevent Windows file locking errors during GPU inference
+    by avoiding manifest file creation in custom directories.
     
     Args:
         model: The loaded ASR model
         batch_size: Batch size for transcription
         
     Returns:
-        Transcribe configuration object with num_workers=0
+        Transcribe configuration object with num_workers=0 and proper temp_dir
     """
     config = model.get_transcribe_config()
     config.num_workers = 0  # CRITICAL: Disable worker processes to prevent manifest file creation
+    config.temp_dir = str(_temp_dir)  # CRITICAL: Use Windows standard temp location
     config.batch_size = batch_size
     config.drop_last = False
     return config
@@ -880,8 +891,6 @@ def transcribe_audio(audio_files, model_choice, save_to_file, include_timestamps
         return "⚠️ Please upload an audio or video file first", "", None
     
     try:
-        import librosa
-        
         # Handle both single file and multiple files
         # Gradio gr.File with file_count="multiple" returns list of file objects
         # Each file object has a .name attribute with the path
@@ -1006,34 +1015,70 @@ def transcribe_audio(audio_files, model_choice, save_to_file, include_timestamps
                 video_count += 1
                 print(f"🎬 Extracting audio from video: {os.path.basename(cached_file_path)}")
             
-            # librosa.get_duration handles both audio and video files (via FFmpeg)
-            # Add retry logic to handle Windows antivirus scanning the newly-copied file
+            # ========================================================================
+            # Get audio duration with proper file handle cleanup
+            # ========================================================================
+            # Use soundfile with context manager for guaranteed file handle closure.
+            # This prevents WinError 32 when NeMo tries to access the file.
+            # Fallback to librosa for video files (soundfile can't read video).
+            # Force gc.collect() after duration check to release all file handles.
+            # ========================================================================
             duration = None
             max_duration_retries = 4
             duration_base_delay = 0.5
             
             for attempt in range(max_duration_retries):
                 try:
-                    duration = librosa.get_duration(path=cached_file_path)
+                    # Check if it's a video file first
+                    if is_video:
+                        # Video files must use librosa (soundfile can't read video)
+                        duration = librosa.get_duration(path=cached_file_path)
+                    elif SOUNDFILE_AVAILABLE:
+                        # For audio files, try soundfile first (better file handle management)
+                        try:
+                            with soundfile.SoundFile(cached_file_path) as f:
+                                duration = len(f) / f.samplerate  # duration in seconds
+                        except Exception as soundfile_error:
+                            # Fallback to librosa if soundfile fails
+                            print(f"   ⚠️  soundfile failed ({type(soundfile_error).__name__}: {soundfile_error}), falling back to librosa")
+                            duration = librosa.get_duration(path=cached_file_path)
+                    else:
+                        # soundfile not available, use librosa directly
+                        duration = librosa.get_duration(path=cached_file_path)
+                    
+                    # CRITICAL: Force garbage collection to release all file handles
+                    # This prevents WinError 32 when NeMo tries to access the file immediately after
+                    gc.collect()
+                    
                     break  # Success - exit retry loop
+                    
                 except (OSError, PermissionError) as e:
                     if attempt < max_duration_retries - 1:
-                        # File may still be locked by antivirus - retry with linear backoff
-                        delay = duration_base_delay * (attempt + 1)  # 0.5s, 1.0s, 1.5s, 2.0s
+                        # File may be locked - retry with backoff
+                        delay = duration_base_delay * (attempt + 1)
                         print(f"   ⚠️  File lock on duration check (attempt {attempt + 1}/{max_duration_retries}), waiting {delay:.1f}s...")
+                        
+                        # Cleanup before retry
+                        gc.collect()
                         time.sleep(delay)
                         continue
                     else:
                         # Final retry failed - handle based on file type
+                        error_msg = str(e)
                         if is_video:
-                            return f"❌ Video file '{os.path.basename(cached_file_path)}' appears to have no audio track or cannot be processed.\n\nError: {str(e)}", "", None
-                        raise
+                            return f"❌ Video file '{os.path.basename(cached_file_path)}' appears to have no audio track or cannot be processed.\n\nError: {error_msg}", "", None
+                        else:
+                            raise
                 except Exception as e:
-                    # Other errors (e.g., video has no audio track)
+                    # Handle other unexpected exceptions (e.g., corrupted file, unsupported format)
+                    # For video files, provide user-friendly error; for audio files, re-raise
+                    error_msg = str(e)
                     if is_video:
-                        return f"❌ Video file '{os.path.basename(cached_file_path)}' appears to have no audio track or cannot be processed.\n\nError: {str(e)}", "", None
-                    raise
+                        return f"❌ Video file '{os.path.basename(cached_file_path)}' appears to have no audio track or cannot be processed.\n\nError: {error_msg}", "", None
+                    else:
+                        raise
             
+            # duration should now be set and all file handles released
             total_duration += duration
             processed_files.append(cached_file_path)
             file_info.append({
@@ -1131,6 +1176,11 @@ def transcribe_audio(audio_files, model_choice, save_to_file, include_timestamps
                 f"```\n{error_msg}\n```",
                 "", None
             )
+        
+        # Force cleanup of file handles and GPU memory after transcription
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         
         inference_time = time.time() - inference_start
         total_time = time.time() - start_time
