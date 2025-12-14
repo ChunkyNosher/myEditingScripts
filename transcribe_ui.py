@@ -99,6 +99,7 @@ import time
 import gc
 import shutil
 import hashlib
+import librosa  # For audio/video duration checking
 
 # Try to import soundfile for better file handle management
 # Falls back to librosa-only if not available
@@ -889,8 +890,6 @@ def transcribe_audio(audio_files, model_choice, save_to_file, include_timestamps
         return "⚠️ Please upload an audio or video file first", "", None
     
     try:
-        import librosa
-        
         # Handle both single file and multiple files
         # Gradio gr.File with file_count="multiple" returns list of file objects
         # Each file object has a .name attribute with the path
