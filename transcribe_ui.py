@@ -1013,21 +1013,18 @@ def transcribe_audio(audio_files, model_choice, save_to_file, include_timestamps
             
             for attempt in range(max_duration_retries):
                 try:
-                    # Use soundfile with context manager for guaranteed file handle closure
-                    # This is more reliable than librosa for file handle management
-                    try:
-                        with soundfile.SoundFile(cached_file_path) as f:
-                            duration = len(f) / f.samplerate  # duration in seconds
-                    except Exception as soundfile_error:
-                        # Fallback to librosa if soundfile fails (e.g., video files)
-                        if is_video:
-                            # Video files must use librosa (soundfile can't read video)
-                            import librosa
-                            duration = librosa.get_duration(path=cached_file_path)
-                        else:
-                            # For audio files, soundfile failure might indicate corruption
+                    # Check if it's a video file first
+                    if is_video:
+                        # Video files must use librosa (soundfile can't read video)
+                        duration = librosa.get_duration(path=cached_file_path)
+                    else:
+                        # For audio files, try soundfile first (better file handle management)
+                        try:
+                            with soundfile.SoundFile(cached_file_path) as f:
+                                duration = len(f) / f.samplerate  # duration in seconds
+                        except Exception as soundfile_error:
+                            # Fallback to librosa if soundfile fails
                             print(f"   ⚠️  soundfile failed ({soundfile_error}), falling back to librosa")
-                            import librosa
                             duration = librosa.get_duration(path=cached_file_path)
                     
                     # CRITICAL: Force garbage collection to release all file handles
