@@ -29,7 +29,8 @@ os.environ["NEMO_CACHE_DIR"] = str(_cache_dir / "nemo")
 # CRITICAL FIX: Use Windows standard temp directory for NeMo manifest files
 # Windows properly handles file locking in C:\Users\<username>\AppData\Local\Temp\
 # Custom directories cause WinError 32 due to lack of OS-level optimizations
-_temp_dir = Path(tempfile.gettempdir()) / "nemo_transcribe_cache"
+_original_system_temp = Path(tempfile.gettempdir())  # Store original before modification
+_temp_dir = _original_system_temp / "nemo_transcribe_cache"
 _temp_dir.mkdir(parents=True, exist_ok=True)
 
 # Configure Python's tempfile module to use Windows standard temp location
@@ -58,21 +59,21 @@ CACHE_DIR = _cache_dir
 # ============================================================================
 
 # Validate that our tempfile configuration is using system temp directory
-_system_temp = Path(tempfile.gettempdir())
-print(f"✓ System temp directory: {_system_temp}")
+print(f"✓ Original system temp: {_original_system_temp}")
 print(f"✓ NeMo temp directory: {_temp_dir}")
 
-# Verify _temp_dir is a subdirectory of the system temp
+# Verify _temp_dir is a subdirectory of the original system temp
 try:
-    # Check if _temp_dir is relative to system temp
-    _temp_dir.relative_to(_system_temp)
+    # Check if _temp_dir is relative to original system temp
+    _temp_dir.relative_to(_original_system_temp)
     print(f"✓ Temp directory configuration verified - using Windows standard location")
 except ValueError:
     # _temp_dir is not under system temp
     print(f"⚠️  WARNING: NeMo temp is not in system temp location!")
-    print(f"   Expected: subdirectory of {_system_temp}")
+    print(f"   Expected: subdirectory of {_original_system_temp}")
     print(f"   Actual: {_temp_dir}")
     print(f"   This may cause file locking issues!")
+
 
 
 # ============================================================================
@@ -99,7 +100,7 @@ import time
 import gc
 import shutil
 import hashlib
-import librosa  # For audio/video duration checking
+import librosa  # For audio/video duration checking - imported at module level to avoid repeated imports in loops
 
 # Try to import soundfile for better file handle management
 # Falls back to librosa-only if not available
