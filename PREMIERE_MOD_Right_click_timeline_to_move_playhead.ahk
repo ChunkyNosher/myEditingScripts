@@ -26,7 +26,7 @@ Menu, Tray, Icon, imageres.dll, 90
 ;The easy solution is to just fill up your timeline with tracks; have no blank space.
 
 ;---------------------------------------------------------------------------------------
-
+/*
 ;First, we define all the timeline's DEFAULT possible colors.
 ;(Note that your colors will be different if you changed the UI brightness inside preferences > appearance > brightness.)
 ;I used Window Spy (it comes with AHK) to detect the exact colors onscreen.
@@ -51,7 +51,7 @@ PremiereSequenceWindow := "DroverLord - Window Class83,DroverLord - Window Class
 Rbutton::
 MouseGetPos, X, Y, , PremiereSequenceCheck
 PixelGetColor colorr, %X%, %Y%, RGB
-if (colorr = timeline5 || colorr = timeline6 || colorr = timeline7) ;these are the timeline colors of a selected clip or blank space, in or outside of in/out points.
+if (colorr = timeline4 || colorr = timeline5 || colorr = timeline6 || colorr = timeline7) ;these are the timeline colors of a selected clip or blank space, in or outside of in/out points.
 	send {ESC} ;in Premiere 13.0, ESCAPE will now deselect clips on the timeline, in addition to its other uses. i think it is good ot use here, now. But you can swap this out with CTRL SHIFT D if you like.
 ;send ^!d ;in Premiere, set CTRL ALT D to "DESELECT ALL"
 if (colorr = timeline0 || colorr = timeline1 || colorr = timeline2 || colorr = timeline3 || colorr = timeline4 || colorr = timeline5 || colorr = timeline6 || colorr = timeline7) ;alternatively, i think I can use "if in" for this kind of thing..
@@ -98,7 +98,7 @@ else
 	sendinput {Rbutton}
 theEnd:
 Return
-
+*/
 
 ;If you don't want to use Rbutton (the right mouse button), then you don't need to check for colors and things. This simplifies the script siginificantly.
 ;In the following script, You can change "Mbutton" to anything else. like "Xbutton1", or  even "F12" if you wanted.
@@ -108,25 +108,25 @@ Return
 
 ;;;;;Mbutton::\ ;<----this would be the STUPID way of doing this. BAD BAD BAD! do not want!
 #ifwinactive ahk_exe adobe premiere pro.exe
-;Mbutton::
-;if GetKeyState("MButton", "P") = 1
+Mbutton::
+if GetKeyState("MButton", "P") = 1
+	{
+	loop
 		{
-		;loop
+		Send \ ;in premiere, this must be set to "move playhead to cursor."
+		;Tooltip, button 5 playhead mod!
+		sleep 16 ;this loop will repeat every 16 milliseconds.
+		if GetKeyState("Xbutton2", "P") = 0
 			{
-			;Send \ ;in premiere, this must be set to "move playhead to cursor."
-			; Tooltip, button 5 playhead mod!
-			;sleep 16 ;this loop will repeat every 16 milliseconds.
-			;if GetKeyState("Xbutton2", "P") = 0
-				{
-				; msgbox,,,time to break,1
-				;tooltip,
-				;goto theEnd2
-				;break
-				}
+			;msgbox,,,time to break,1
+			;tooltip,
+			goto theEnd2
+			;break
 			}
+		}
 }
-;theEnd2:
-;Return
+theEnd2:
+Return
 
 
 

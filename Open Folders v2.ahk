@@ -7,8 +7,8 @@ OpenAllFolders() {
     ; Timing constants
     LONG_WAIT   := 2000
     MED_WAIT    := 1000
-    SHORT_WAIT  := 450
-    QUICK_WAIT  := 200
+    SHORT_WAIT  := 550
+    QUICK_WAIT  := 350
     
     ; Define folder paths directly in the function
     folderArray := []

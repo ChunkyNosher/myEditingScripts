@@ -44,6 +44,7 @@ vmax := 1
 ; APPLICATIONS WHERE SCRIPT SHOULD BE DISABLED
 ; Use #If to conditionally disable the hotkeys for specific applications
 #IfWinNotActive ahk_exe FortniteClient-Win64-Shipping.exe
+#IfWinNotActive ahk_exe Overwatch.exe
 
 ; Key bindings (only active when NOT in Fortnite)
 WheelUp::    Goto Scroll

@@ -43,12 +43,12 @@ HotkeyConfig["SC017"] := { "RCtrl": "", "RAlt": "", "RShift": "", "RCtrl_RAlt": 
 HotkeyConfig["SC024"] := { "RCtrl": "", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "j"
 HotkeyConfig["SC025"] := { "RCtrl": "", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "k"
 HotkeyConfig["SC026"] := { "RCtrl": "", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "l"
-HotkeyConfig["SC032"] := { "RCtrl": "ActivateExplorer", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "OpenAllFolders", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "m"
+HotkeyConfig["SC032"] := { "RCtrl": "LaunchOneCommander", "RAlt": "!{F23}", "RShift": "+{F23}", "RCtrl_RAlt": "", "RCtrl_RShift": "OpenAllFolders", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "m"
 HotkeyConfig["SC031"] := { "RCtrl": "LaunchPremiere", "RAlt": "", "RShift": "ActivateNotepadPlusPlus", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "n"
 HotkeyConfig["SC018"] := { "RCtrl": "", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "o"
 HotkeyConfig["SC019"] := { "RCtrl": "ActivateNotepadPlusPlus", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "p"
 HotkeyConfig["SC010"] := { "RCtrl": "", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "q"
-HotkeyConfig["SC013"] := { "RCtrl": "", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "r"
+HotkeyConfig["SC013"] := { "RCtrl": "ToggleRandomWigglerPremiere", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "r"
 HotkeyConfig["SC01F"] := { "RCtrl": "", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "s"
 HotkeyConfig["SC014"] := { "RCtrl": "ToggleAlwaysOnTop", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "t"
 HotkeyConfig["SC016"] := { "RCtrl": "", "RAlt": "", "RShift": "", "RCtrl_RAlt": "", "RCtrl_RShift": "", "RAlt_RShift": "", "RCtrl_RAlt_RShift": "" } ; "u"
@@ -301,6 +301,12 @@ LaunchPremiere() {
     WinActivate, ahk_exe Adobe Premiere Pro.exe
 }
 
+LaunchOneCommander() {
+    IfWinNotExist, ahk_exe OneCommander.exe
+        Run, OneCommander.exe
+    WinActivate, ahk_exe OneCommander.exe
+}
+
 ActivateNotepadPlusPlus() {
     IfWinNotExist, ahk_exe notepad++.exe
         Run, Notepad++.exe
@@ -312,6 +318,20 @@ ActivateVSCode() {
         Run, Visual Studio Code - Insiders
     WinActivate, ahk_exe Code - Insiders.exe
 }
+
+ToggleRandomWigglerPremiere() {
+	if WinActive("ahk_exe Adobe Premiere Pro.exe")
+	{	
+		SendInput, {Alt}
+		SendInput, w
+		SendInput, e
+		SendInput, {Right}
+		SendInput, r
+	}
+	else
+		return
+}
+		
 
 ToggleAlwaysOnTop() {
     ; Get the active window's HWND for reliable identification

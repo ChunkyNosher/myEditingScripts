@@ -18,7 +18,10 @@ SuspensionList :=
 ahk_exe notepad.exe
 ahk_exe chrome.exe
 Calculator
-Microsoft Word"
+Microsoft Word
+ahk_exe Overwatch.exe
+ahk_exe GeometryDash.exe
+ahk_exe OneCommander.exe"
 )
 
 SetTimer, CheckActiveWindow, 100  ; Check every second
